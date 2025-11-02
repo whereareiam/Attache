@@ -17,9 +17,6 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Integration tests for {@link IsolatedClassLoader} functionality.
  * These tests require network access to download test libraries.
- * <p>
- * Note: On Windows, these tests may show cleanup warnings due to file locking,
- * but the actual test logic passes successfully.
  */
 class IsolatedClassLoaderTest {
 	@TempDir

@@ -5,6 +5,7 @@ import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
 import me.whereareiam.attache.common.logging.Logger;
+import me.whereareiam.attache.common.transitive.TransitiveDependencyHelper;
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.common.util.RelocationHelper;
 import me.whereareiam.attache.model.Library;
@@ -62,6 +63,11 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 * Lazily initialized relocation helper
 	 */
 	protected RelocationHelper relocator;
+
+	/**
+	 * Lazily initialized helper for transitive dependencies resolution
+	 */
+	protected TransitiveDependencyHelper transitiveDependencyHelper;
 
 	/**
 	 * Global isolated class loader for libraries
@@ -271,7 +277,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 * @param library the library to resolve repositories for
 	 * @return the resolved repositories
 	 */
-	protected Collection<String> resolveRepositories(@NotNull Library library) {
+	public Collection<String> resolveRepositories(@NotNull Library library) {
 		return switch (getRepositoryResolutionMode()) {
 			case GLOBAL_FIRST -> Stream.of(
 							getRepositories(),
@@ -461,6 +467,26 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		}
 	}
 
+	/**
+	 * Resolves and loads transitive libraries for a given library. This method ensures that
+	 * all libraries on which the provided library depends are properly loaded.
+	 *
+	 * @param library the primary library for which transitive libraries need to be resolved and loaded.
+	 * @throws NullPointerException if the provided library is null.
+	 * @see #loadLibrary(Library)
+	 */
+	protected void resolveTransitiveLibraries(@NotNull Library library) {
+		requireNonNull(library, "library");
+
+		synchronized (this) {
+			if (transitiveDependencyHelper == null)
+				transitiveDependencyHelper = new TransitiveDependencyHelper(this, saveDirectory);
+		}
+
+		for (Library transitiveLibrary : transitiveDependencyHelper.findTransitiveLibraries(library))
+			loadLibrary(transitiveLibrary);
+	}
+
 	@Override
 	public void loadLibrary(@NotNull Library library, @NotNull Path file) {
 		requireNonNull(library, "library");
@@ -486,6 +512,11 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 		try {
 			Path file = downloadLibrary(library);
+
+			// Resolve transitive dependencies before loading the main library
+			if (library.isResolveTransitiveDependencies())
+				resolveTransitiveLibraries(library);
+
 			loadLibrary(library, file);
 
 			// Track successful load

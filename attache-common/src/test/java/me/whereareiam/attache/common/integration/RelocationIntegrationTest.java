@@ -25,9 +25,6 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Integration tests for library relocation.
  * These tests require network access to download libraries and jar-relocator.
- * <p>
- * Note: On Windows, these tests may show cleanup warnings due to file locking,
- * but the actual test logic passes successfully.
  */
 class RelocationIntegrationTest {
 	@TempDir

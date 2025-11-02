@@ -19,8 +19,9 @@ import java.util.Collection;
  * Maven repositories, download it into a local cache, relocate it and then
  * load it into the classloader classpath.
  * <p>
- * Transitive dependencies for a library aren't downloaded automatically and
- * must be explicitly loaded like every other library.
+ * Transitive dependencies for a library can be automatically resolved and downloaded
+ * by setting {@link Library#isResolveTransitiveDependencies()} to true. When enabled,
+ * all transitive dependencies will be loaded before the main library.
  * <p>
  * It's recommended that libraries are relocated to prevent any namespace
  * conflicts with different versions of the same library bundled with other

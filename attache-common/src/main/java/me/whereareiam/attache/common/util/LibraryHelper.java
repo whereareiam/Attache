@@ -100,7 +100,7 @@ public final class LibraryHelper {
 	 * @return normalized string
 	 */
 	@NotNull
-	static String replaceWithDots(@NotNull String str) {
+	public static String replaceWithDots(@NotNull String str) {
 		return str.replace("{}", ".");
 	}
 
