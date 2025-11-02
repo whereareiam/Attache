@@ -87,7 +87,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	/**
 	 * Logging verbosity mode
 	 */
-	protected VerbosityMode verbosityMode = VerbosityMode.NORMAL;
+	protected VerbosityMode verbosityMode = VerbosityMode.VERBOSE;
 
 	/**
 	 * Loaded libraries tracking for summary
@@ -328,9 +328,10 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 					return null;
 				}
 
-				if (verbosityMode == VerbosityMode.VERBOSE) {
+				// Log based on verbosity mode
+				if (verbosityMode == VerbosityMode.VERBOSE)
 					logger.info("Downloaded library " + connection.getURL());
-				}
+
 				return out.toByteArray();
 			}
 		} catch (MalformedURLException e) {
@@ -454,7 +455,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 			relocator.relocate(in, tmpOut, relocations);
 			Files.move(tmpOut, file);
 
-			logger.info("Relocations applied to " + in.getFileName());
+			if (verbosityMode == VerbosityMode.VERBOSE)
+				logger.info("Relocations applied to " + in.getFileName());
 
 			return file;
 		} catch (IOException e) {
