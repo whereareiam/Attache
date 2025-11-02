@@ -6,7 +6,11 @@ on:
       - dev
 
 jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
   publish:
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,10 +28,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-
-      - name: Run tests
-        run: ./gradlew --no-daemon test
+          java-version: '21'
 
       - name: Publish all modules to repository
         env:

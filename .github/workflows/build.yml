@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - dev
+  workflow_call:
 
 jobs:
   build:
@@ -22,7 +23,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Build with Gradle
         run: ./gradlew --no-daemon build
