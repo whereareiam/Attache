@@ -154,6 +154,6 @@ public class Library {
 		String name = groupId + ':' + artifactId + ':' + version;
 		if (hasClassifier()) name += ':' + classifier;
 
-		return name;
+		return name.replace("{}", ".");
 	}
 }
