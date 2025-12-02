@@ -7,7 +7,8 @@ jetbrains-annotations = "26.0.2"
 junit = "6.0.0"
 
 # platforms apis
-paper = "1.21.8-R0.1-SNAPSHOT"
+bukkit = "1.21.10-R0.1-SNAPSHOT"
+paper = "1.21.10-R0.1-SNAPSHOT"
 velocity = "3.4.0-SNAPSHOT"
 
 [libraries]
@@ -22,6 +23,7 @@ junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.r
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junit" }
 
 # platform apis
+bukkit = { group = "org.spigotmc", name = "spigot-api", version.ref = "bukkit" }
 paper = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
 velocity = { group = "com.velocitypowered", name = "velocity-api", version.ref = "velocity" }
 
