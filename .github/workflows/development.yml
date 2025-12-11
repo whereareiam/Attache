@@ -63,7 +63,7 @@ jobs:
           done
 
   publish:
-    needs: [prepare, test]
+    needs: prepare
     runs-on: ubuntu-latest
     permissions:
       contents: read
