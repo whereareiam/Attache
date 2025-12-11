@@ -5,7 +5,17 @@ on:
     types: [ created ]
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Compute VERSION
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
   test:
+    needs: prepare
     runs-on: ubuntu-latest
     
     steps:
@@ -19,12 +29,9 @@ jobs:
           distribution: 'temurin'
           check-latest: true
 
-      - name: Set version
-        run: |
-          TAG_NAME="${{ github.event.release.tag_name }}"
-          echo "VERSION=${TAG_NAME#v}" >> $GITHUB_ENV
-
       - name: Run tests
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: ./gradlew test
 
       - name: Upload test results
@@ -49,7 +56,7 @@ jobs:
           done
 
   publish:
-    needs: test
+    needs: [prepare, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -64,15 +71,11 @@ jobs:
           distribution: 'temurin'
           check-latest: true
 
-      - name: Set version
-        run: |
-          TAG_NAME="${{ github.event.release.tag_name }}"
-          echo "VERSION=${TAG_NAME#v}" >> $GITHUB_ENV
-
       - name: Publish to Maven repository
         env:
           PUBLISH_USER: ${{ secrets.PUBLISH_USER }}
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           PUBLISH_REALM: release
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: ./gradlew --no-daemon publish
 
