@@ -42,6 +42,14 @@ dependencies {
 }
 ```
 
+**For Spring Boot (auto-configures a StandaloneLibraryManager):**
+
+```gradle
+dependencies {
+	implementation("me.whereareiam:attache-spring:VERSION")
+}
+```
+
 **For Paper Plugins:**
 
 ```gradle
@@ -126,6 +134,52 @@ public class MyPlugin extends JavaPlugin {
 				.build();
 
 		libraryManager.loadLibrary(library);
+	}
+}
+```
+
+### Spring Boot Example (auto-configuration)
+
+Configure in `application.yml`:
+
+```yaml
+attache:
+  library-path: ".libraries" # optional; defaults to .libraries relative to working dir
+  repositories:
+    - https://repo.maven.apache.org/maven2/
+  libraries:
+    - groupId: org{}slf4j
+      artifactId: slf4j-api
+      version: 2.0.16
+      isolated: true
+```
+
+Inject the managed `StandaloneLibraryManager` to add more libraries at runtime:
+
+```java
+import me.whereareiam.attache.model.Library;
+import me.whereareiam.attache.platform.standalone.StandaloneLibraryManager;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
+@Component
+class ExtraLibrariesLoader {
+	private final StandaloneLibraryManager attache;
+
+	ExtraLibrariesLoader(StandaloneLibraryManager attache) {
+		this.attache = attache;
+	}
+
+	@EventListener(ApplicationReadyEvent.class)
+	public void loadExtra() {
+		attache.loadLibrary(
+				Library.builder()
+						.groupId("org{}apache{}commons")
+						.artifactId("commons-lang3")
+						.version("3.14.0")
+						.build()
+		);
 	}
 }
 ```

@@ -11,6 +11,11 @@ bukkit = "1.21.10-R0.1-SNAPSHOT"
 paper = "1.21.10-R0.1-SNAPSHOT"
 velocity = "3.4.0-SNAPSHOT"
 
+# platforms apis -> spring
+spring-boot = "4.0.1"
+slf4j = "2.0.16"
+assertj = "3.27.6"
+
 [libraries]
 
 # general
@@ -26,4 +31,11 @@ junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform
 bukkit = { group = "org.spigotmc", name = "spigot-api", version.ref = "bukkit" }
 paper = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
 velocity = { group = "com.velocitypowered", name = "velocity-api", version.ref = "velocity" }
+
+# platform apis -> spring
+spring-boot-autoconfigure = { group = "org.springframework.boot", name = "spring-boot-autoconfigure", version.ref = "spring-boot" }
+spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor", version.ref = "spring-boot" }
+spring-boot-test = { group = "org.springframework.boot", name = "spring-boot-test", version.ref = "spring-boot" }
+slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
+assert4j-core = { group = "org.assertj", name = "assertj-core", version.ref = "assertj" }
 
