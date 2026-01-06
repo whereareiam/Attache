@@ -10,3 +10,7 @@ publishing {
         }
     }
 }
+
+dependencies {
+    "api"(project(":attache-common"))
+}
