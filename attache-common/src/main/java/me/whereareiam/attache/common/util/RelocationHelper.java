@@ -2,8 +2,8 @@ package me.whereareiam.attache.common.util;
 
 import me.whereareiam.attache.LibraryManager;
 import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
-import me.whereareiam.attache.model.Library;
-import me.whereareiam.attache.model.Relocation;
+import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.model.RelocationRule;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -68,7 +68,7 @@ public class RelocationHelper {
 		try {
 			// Load ASM library (required by jar-relocator)
 			classLoader.addPath(libraryManager.downloadLibrary(
-					Library.builder()
+					LibraryRequest.builder()
 							.groupId("org{}ow2{}asm")
 							.artifactId("asm")
 							.version("9.9")
@@ -77,7 +77,7 @@ public class RelocationHelper {
 			));
 
 			classLoader.addPath(libraryManager.downloadLibrary(
-					Library.builder()
+					LibraryRequest.builder()
 							.groupId("org{}ow2{}asm")
 							.artifactId("asm-commons")
 							.version("9.9")
@@ -87,7 +87,7 @@ public class RelocationHelper {
 
 			// Load jar-relocator
 			classLoader.addPath(libraryManager.downloadLibrary(
-					Library.builder()
+					LibraryRequest.builder()
 							.groupId("me{}lucko")
 							.artifactId("jar-relocator")
 							.version("1.9")
@@ -121,14 +121,14 @@ public class RelocationHelper {
 	 * @param out         output jar
 	 * @param relocations relocations to apply
 	 */
-	public void relocate(@NotNull Path in, @NotNull Path out, @NotNull Collection<Relocation> relocations) {
+	public void relocate(@NotNull Path in, @NotNull Path out, @NotNull Collection<RelocationRule> relocations) {
 		requireNonNull(in, "in");
 		requireNonNull(out, "out");
 		requireNonNull(relocations, "relocations");
 
 		try {
 			List<Object> rules = new LinkedList<>();
-			for (Relocation relocation : relocations) {
+			for (RelocationRule relocation : relocations) {
 				rules.add(relocationConstructor.newInstance(
 						relocation.getPattern(),
 						relocation.getRelocatedPattern(),

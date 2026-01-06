@@ -3,8 +3,8 @@ package me.whereareiam.attache.common.integration;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
-import me.whereareiam.attache.model.Library;
-import me.whereareiam.attache.model.Relocation;
+import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.type.Level;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -51,12 +51,12 @@ class RelocationIntegrationTest {
 
 	@Test
 	void testDownloadAndRelocateLibrary() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.relocations(Collections.singleton(
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}text")
 								.relocatedPattern("me{}test{}relocated{}commons{}text")
 								.build()))
@@ -72,12 +72,12 @@ class RelocationIntegrationTest {
 
 	@Test
 	void testRelocatedPackageStructure() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.relocations(java.util.Collections.singleton(
-						me.whereareiam.attache.model.Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}text")
 								.relocatedPattern("me{}test{}relocated{}commons{}text")
 								.build()))
@@ -104,16 +104,16 @@ class RelocationIntegrationTest {
 
 	@Test
 	void testMultipleRelocations() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.relocations(Arrays.asList(
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}text")
 								.relocatedPattern("me{}test{}relocated{}text")
 								.build(),
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}lang3")
 								.relocatedPattern("me{}test{}relocated{}lang3")
 								.build()))
@@ -136,12 +136,12 @@ class RelocationIntegrationTest {
 
 	@Test
 	void testRelocationCaching() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.relocations(Collections.singleton(
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}text")
 								.relocatedPattern("me{}test{}relocated{}commons{}text")
 								.build()))
@@ -163,23 +163,23 @@ class RelocationIntegrationTest {
 
 	@Test
 	void testDifferentRelocationsCreateDifferentJars() throws Exception {
-		Library library1 = Library.builder()
+		LibraryRequest library1 = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.relocations(Collections.singleton(
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}text")
 								.relocatedPattern("me{}test{}relocated1{}commons{}text")
 								.build()))
 				.build();
 
-		Library library2 = Library.builder()
+		LibraryRequest library2 = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.relocations(Collections.singleton(
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}text")
 								.relocatedPattern("me{}test{}relocated2{}commons{}text")
 								.build()))
@@ -196,12 +196,12 @@ class RelocationIntegrationTest {
 
 	@Test
 	void testRelocationWithIncludes() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.relocations(Collections.singleton(
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("org{}apache{}commons{}text")
 								.relocatedPattern("me{}test{}relocated{}commons{}text")
 								.includes(Collections.singleton("org{}apache{}commons{}text{}**"))

@@ -1,6 +1,5 @@
 package me.whereareiam.attache;
 
-import me.whereareiam.attache.model.Library;
 import me.whereareiam.attache.type.Level;
 import me.whereareiam.attache.type.ResolutionMode;
 import me.whereareiam.attache.type.VerbosityMode;
@@ -20,17 +19,40 @@ import java.util.Collection;
  * load it into the classloader classpath.
  * <p>
  * Transitive dependencies for a library can be automatically resolved and downloaded
- * by setting {@link Library#isResolveTransitiveDependencies()} to true. When enabled,
+ * by setting resolveTransitiveDependencies in the adapted request. When enabled,
  * all transitive dependencies will be loaded before the main library.
  * <p>
  * It's recommended that libraries are relocated to prevent any namespace
  * conflicts with different versions of the same library bundled with other
  * java applications or maybe even bundled with the server itself.
  *
- * @see Library
  */
 @SuppressWarnings("unused")
 public interface LibraryManager {
+	/**
+	 * Registers a library adapter for the given model class.
+	 *
+	 * @param type    the model class to adapt
+	 * @param adapter the adapter implementation
+	 * @param <T>     the model type
+	 */
+	<T> void registerLibraryAdapter(@NotNull Class<T> type, @NotNull LibraryAdapter<? super T> adapter);
+
+	/**
+	 * Removes a previously registered library adapter.
+	 *
+	 * @param type the model class
+	 */
+	void unregisterLibraryAdapter(@NotNull Class<?> type);
+
+	/**
+	 * Checks whether a library adapter exists for the given model type.
+	 *
+	 * @param type the model class
+	 * @return true if an adapter is registered
+	 */
+	boolean hasLibraryAdapter(@NotNull Class<?> type);
+
 	/**
 	 * Gets the configured log adapter.
 	 *
@@ -99,43 +121,43 @@ public interface LibraryManager {
 	/**
 	 * Downloads a library jar and caches it in the save directory if it doesn't already exist.
 	 *
-	 * @param library the library to download
+	 * @param library the library model to download
 	 * @return the path to the downloaded library jar
 	 * @throws IOException              if an I/O error occurs
 	 * @throws URISyntaxException       if the download URL is malformed
 	 * @throws NoSuchAlgorithmException if SHA-256 algorithm is not available
 	 */
 	@NotNull
-	Path downloadLibrary(@NotNull Library library) throws IOException, URISyntaxException, NoSuchAlgorithmException;
+	<T> Path downloadLibrary(@NotNull T library) throws IOException, URISyntaxException, NoSuchAlgorithmException;
 
 	/**
 	 * Loads a library jar into the plugin's classpath.
 	 *
-	 * @param library the library to load
+	 * @param library the library model to load
 	 * @param file    the path to the library jar
 	 */
-	void loadLibrary(@NotNull Library library, @NotNull Path file);
+	<T> void loadLibrary(@NotNull T library, @NotNull Path file);
 
 	/**
 	 * Downloads and loads a library into the plugin's classpath.
 	 *
-	 * @param library the library to download and load
+	 * @param library the library model to download and load
 	 */
-	void loadLibrary(@NotNull Library library);
+	<T> void loadLibrary(@NotNull T library);
 
 	/**
 	 * Downloads and loads all provided libraries in parallel.
 	 *
-	 * @param libraries the libraries to download and load
+	 * @param libraries the library models to download and load
 	 */
-	void loadLibraries(@NotNull Library... libraries);
+	<T> void loadLibraries(@NotNull T... libraries);
 
 	/**
 	 * Downloads and loads all provided libraries in parallel.
 	 *
-	 * @param libraries the libraries to download and load
+	 * @param libraries the library models to download and load
 	 */
-	void loadLibraries(@NotNull Collection<Library> libraries);
+	<T> void loadLibraries(@NotNull Collection<? extends T> libraries);
 
 	/**
 	 * Sets the repository resolution mode.

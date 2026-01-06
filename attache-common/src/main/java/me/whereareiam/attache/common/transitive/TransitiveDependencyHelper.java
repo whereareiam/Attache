@@ -5,7 +5,7 @@ import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.model.ExcludedDependency;
-import me.whereareiam.attache.model.Library;
+import me.whereareiam.attache.model.LibraryRequest;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,7 +49,7 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	private static final String MAVEN_RESOLVER_FALLBACK_REPO = "https://repo.alessiodp.com/releases";
 
 	/**
-	 * TransitiveDependencyCollector class instance, used in {@link #findTransitiveLibraries(Library)}
+	 * TransitiveDependencyCollector class instance, used in {@link #findTransitiveLibraries(LibraryRequest)}
 	 */
 	private final Object transitiveDependencyCollectorObject;
 
@@ -68,7 +68,7 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	private final Method artifactGetClassifierMethod;
 
 	/**
-	 * BaseLibraryManager instance, used in {@link #findTransitiveLibraries(Library)}
+	 * BaseLibraryManager instance, used in {@link #findTransitiveLibraries(LibraryRequest)}
 	 */
 	private final BaseLibraryManager libraryManager;
 
@@ -112,7 +112,7 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	 * @throws Exception if loading fails
 	 */
 	private void loadMavenResolverLibrary() throws Exception {
-		Library mavenResolver = Library.builder()
+		LibraryRequest mavenResolver = LibraryRequest.builder()
 				.groupId(MAVEN_RESOLVER_GROUP)
 				.artifactId(MAVEN_RESOLVER_ARTIFACT)
 				.version(MAVEN_RESOLVER_VERSION)
@@ -178,12 +178,12 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	 * </p>
 	 *
 	 * @param library The primary library for which transitive dependencies need to be found.
-	 * @return A collection of {@link Library} objects representing the transitive libraries
+	 * @return A collection of {@link LibraryRequest} objects representing the transitive libraries
 	 * excluding the ones marked as excluded in the provided library.
 	 * @throws RuntimeException If there's any exception during the reflection-based operations.
 	 */
 	@NotNull
-	public Collection<Library> findTransitiveLibraries(@NotNull Library library) {
+	public Collection<LibraryRequest> findTransitiveLibraries(@NotNull LibraryRequest library) {
 		requireNonNull(library, "library");
 
 		validateRepositories(library);
@@ -191,9 +191,9 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 		Set<ExcludedDependency> excludedDependencies = new HashSet<>(library.getExcludedTransitiveDependencies());
 		Collection<?> resolvedArtifacts = resolveArtifacts(library);
 
-		List<Library> transitiveLibraries = new ArrayList<>();
+		List<LibraryRequest> transitiveLibraries = new ArrayList<>();
 		for (Object resolved : resolvedArtifacts) {
-			Library transitiveLibrary = processResolvedArtifact(resolved, library, excludedDependencies);
+			LibraryRequest transitiveLibrary = processResolvedArtifact(resolved, library, excludedDependencies);
 			if (transitiveLibrary != null)
 				transitiveLibraries.add(transitiveLibrary);
 		}
@@ -207,7 +207,7 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	 * @param library the library to validate repositories for
 	 * @throws IllegalArgumentException if no repositories are configured
 	 */
-	private void validateRepositories(@NotNull Library library) {
+	private void validateRepositories(@NotNull LibraryRequest library) {
 		Collection<String> globalRepositories = libraryManager.getRepositories();
 		Collection<String> libraryRepositories = library.getRepositories();
 		Collection<String> libraryFallbackRepositories = library.getFallbackRepositories();
@@ -223,9 +223,9 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	 * @return collection of resolved artifacts
 	 * @throws RuntimeException if resolution fails
 	 */
-	private Collection<?> resolveArtifacts(@NotNull Library library) {
+	private Collection<?> resolveArtifacts(@NotNull LibraryRequest library) {
 		// Normalize the library to replace {} with . in coordinates
-		Library normalizedLibrary = LibraryHelper.normalize(library);
+		LibraryRequest normalizedLibrary = LibraryHelper.normalize(library);
 		Stream<String> repositories = libraryManager.resolveRepositories(normalizedLibrary).stream();
 
 		try {
@@ -251,9 +251,9 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	 * @return the transitive library, or null if it should be skipped
 	 */
 	@Nullable
-	private Library processResolvedArtifact(
+	private LibraryRequest processResolvedArtifact(
 			@NotNull Object resolved,
-			@NotNull Library parentLibrary,
+			@NotNull LibraryRequest parentLibrary,
 			@NotNull Set<ExcludedDependency> excludedDependencies
 	) {
 		try {
@@ -295,16 +295,16 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 	 * @return the built Library object
 	 */
 	@NotNull
-	private Library buildTransitiveLibrary(
+	private LibraryRequest buildTransitiveLibrary(
 			@NotNull String groupId,
 			@NotNull String artifactId,
 			@NotNull String baseVersion,
 			@Nullable String classifier,
 			@NotNull String version,
 			@Nullable String repository,
-			@NotNull Library parentLibrary
+			@NotNull LibraryRequest parentLibrary
 	) {
-		var libraryBuilder = Library.builder()
+		var libraryBuilder = LibraryRequest.builder()
 				.groupId(groupId)
 				.artifactId(artifactId)
 				.version(baseVersion)
@@ -356,7 +356,7 @@ public class TransitiveDependencyHelper implements AutoCloseable {
 		}
 
 		// Build a temporary library to get the partial path
-		Library tempLibrary = Library.builder()
+		LibraryRequest tempLibrary = LibraryRequest.builder()
 				.groupId(groupId)
 				.artifactId(artifactId)
 				.version(baseVersion)

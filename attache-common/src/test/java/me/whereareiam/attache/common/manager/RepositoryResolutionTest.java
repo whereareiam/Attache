@@ -3,7 +3,7 @@ package me.whereareiam.attache.common.manager;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.common.BaseLibraryManager;
-import me.whereareiam.attache.model.Library;
+import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.type.Level;
 import me.whereareiam.attache.type.ResolutionMode;
 import org.jetbrains.annotations.NotNull;
@@ -34,7 +34,7 @@ class RepositoryResolutionTest {
 		libraryManager.addRepository("https://global-repo.com/");
 		libraryManager.setRepositoryResolutionMode(ResolutionMode.DEFAULT);
 
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test")
 				.version("1.0.0")
@@ -57,7 +57,7 @@ class RepositoryResolutionTest {
 		libraryManager.addRepository("https://global-repo.com/");
 		libraryManager.setRepositoryResolutionMode(ResolutionMode.GLOBAL_FIRST);
 
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test")
 				.version("1.0.0")
@@ -80,7 +80,7 @@ class RepositoryResolutionTest {
 		libraryManager.addRepository("https://global-repo.com/");
 		libraryManager.setRepositoryResolutionMode(ResolutionMode.LIBRARY_FIRST);
 
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test")
 				.version("1.0.0")
@@ -150,7 +150,7 @@ class RepositoryResolutionTest {
 	void testResolveLibraryUrls() {
 		libraryManager.addMavenCentral();
 
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -165,7 +165,7 @@ class RepositoryResolutionTest {
 
 	@Test
 	void testResolveLibraryWithDirectUrl() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -192,12 +192,12 @@ class RepositoryResolutionTest {
 
 		// Expose protected methods for testing
 		@Override
-		public Collection<String> resolveRepositories(@NotNull Library library) {
+		public Collection<String> resolveRepositories(@NotNull LibraryRequest library) {
 			return super.resolveRepositories(library);
 		}
 
 		@Override
-		public Collection<String> resolveLibrary(@NotNull Library library) {
+		public Collection<String> resolveLibrary(@NotNull LibraryRequest library) {
 			return super.resolveLibrary(library);
 		}
 	}

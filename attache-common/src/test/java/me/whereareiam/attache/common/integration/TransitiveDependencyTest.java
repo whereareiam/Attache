@@ -4,7 +4,8 @@ import lombok.Getter;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.model.ExcludedDependency;
-import me.whereareiam.attache.model.Library;
+import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.type.Level;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -51,7 +52,7 @@ class TransitiveDependencyTest {
 
 	@Test
 	void testBasicTransitiveResolution() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -80,7 +81,7 @@ class TransitiveDependencyTest {
 
 	@Test
 	void testTransitiveResolutionWithExclusion() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -102,7 +103,7 @@ class TransitiveDependencyTest {
 
 	@Test
 	void testTransitiveResolutionDisabled() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -123,12 +124,12 @@ class TransitiveDependencyTest {
 
 	@Test
 	void testTransitiveResolutionWithRelocations() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
 				.resolveTransitiveDependencies(true)
-				.relocation(me.whereareiam.attache.model.Relocation.builder()
+				.relocation(RelocationRule.builder()
 						.pattern("org{}apache{}commons{}text")
 						.relocatedPattern("me{}test{}relocated{}commons{}text")
 						.build())
@@ -156,7 +157,7 @@ class TransitiveDependencyTest {
 	void testTransitiveResolutionWithIsolatedClassLoader() {
 		String loaderId = "transitive-test-loader";
 
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -181,7 +182,7 @@ class TransitiveDependencyTest {
 		TestLibraryManager emptyRepoManager = new TestLibraryManager(tempDir);
 
 		try {
-			Library library = Library.builder()
+			LibraryRequest library = LibraryRequest.builder()
 					.groupId(TEST_GROUP_ID)
 					.artifactId(TEST_ARTIFACT_ID)
 					.version(TEST_VERSION)
@@ -199,7 +200,7 @@ class TransitiveDependencyTest {
 	void testTransitiveResolutionWithBraceSyntax() {
 		// Test that {} syntax in library coordinates is properly normalized
 		// before being passed to the maven resolver
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("org{}apache{}commons")
 				.artifactId("commons-text")
 				.version(TEST_VERSION)

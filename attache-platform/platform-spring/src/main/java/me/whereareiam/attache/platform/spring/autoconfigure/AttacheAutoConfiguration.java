@@ -1,9 +1,9 @@
 package me.whereareiam.attache.platform.spring.autoconfigure;
 
 import me.whereareiam.attache.LoggingHelper;
-import me.whereareiam.attache.model.Library;
 import me.whereareiam.attache.platform.spring.config.AttacheProperties;
 import me.whereareiam.attache.platform.spring.config.library.LibraryProperties;
+import me.whereareiam.attache.platform.spring.config.library.LibraryPropertiesAdapter;
 import me.whereareiam.attache.platform.spring.logging.SpringLoggingHelper;
 import me.whereareiam.attache.platform.standalone.StandaloneLibraryManager;
 import org.springframework.boot.ApplicationRunner;
@@ -15,7 +15,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 
 import java.nio.file.Paths;
-import java.util.List;
 
 @AutoConfiguration
 @EnableConfigurationProperties(AttacheProperties.class)
@@ -46,6 +45,7 @@ public class AttacheAutoConfiguration {
             manager.addMavenCentral();
         }
         properties.getRepositories().forEach(manager::addRepository);
+        manager.registerLibraryAdapter(LibraryProperties.class, new LibraryPropertiesAdapter());
 
         return manager;
     }
@@ -58,13 +58,8 @@ public class AttacheAutoConfiguration {
                 return;
             }
 
-            List<Library> libraries = properties.getLibraries()
-                    .stream()
-                    .map(LibraryProperties::toLibrary)
-                    .toList();
-
             try {
-                libraryManager.loadLibraries(libraries);
+                libraryManager.loadLibraries(properties.getLibraries());
             } catch (RuntimeException ex) {
                 libraryManager.getLogger().error("Failed to load Attache libraries", ex);
                 throw ex;

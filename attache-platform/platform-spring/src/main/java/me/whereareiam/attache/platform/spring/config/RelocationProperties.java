@@ -2,7 +2,7 @@ package me.whereareiam.attache.platform.spring.config;
 
 import lombok.Getter;
 import lombok.Setter;
-import me.whereareiam.attache.model.Relocation;
+import me.whereareiam.attache.model.RelocationRule;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,12 +20,12 @@ public class RelocationProperties {
     private final List<String> excludes = new ArrayList<>();
 
     /**
-     * Converts the configured values into a {@link Relocation}.
+     * Converts the configured values into a {@link RelocationRule}.
      *
-     * @return relocation model instance
+     * @return relocation rule instance
      */
-    public Relocation toRelocation() {
-        Relocation.RelocationBuilder builder = Relocation.builder()
+    public RelocationRule toRelocationRule() {
+        RelocationRule.RelocationRuleBuilder builder = RelocationRule.builder()
                 .pattern(Objects.requireNonNull(pattern, "pattern"))
                 .relocatedPattern(Objects.requireNonNull(relocatedPattern, "relocatedPattern"));
 

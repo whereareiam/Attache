@@ -1,7 +1,7 @@
 package me.whereareiam.attache.common.util;
 
-import me.whereareiam.attache.model.Library;
-import me.whereareiam.attache.model.Relocation;
+import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.model.RelocationRule;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,7 +25,7 @@ public final class LibraryHelper {
 	 * @return a new library with normalized values
 	 */
 	@NotNull
-	public static Library normalize(@NotNull Library library) {
+	public static LibraryRequest normalize(@NotNull LibraryRequest library) {
 		requireNonNull(library, "library");
 
 		return library.toBuilder()
@@ -62,7 +62,7 @@ public final class LibraryHelper {
 	 * @return normalized relocations
 	 */
 	@NotNull
-	private static Collection<Relocation> normalizeRelocations(@NotNull Collection<Relocation> relocations) {
+	private static Collection<RelocationRule> normalizeRelocations(@NotNull Collection<RelocationRule> relocations) {
 		return relocations.stream()
 				.map(LibraryHelper::normalizeRelocation)
 				.collect(Collectors.toList());
@@ -75,7 +75,7 @@ public final class LibraryHelper {
 	 * @return normalized relocation
 	 */
 	@NotNull
-	private static Relocation normalizeRelocation(@NotNull Relocation relocation) {
+	private static RelocationRule normalizeRelocation(@NotNull RelocationRule relocation) {
 		return relocation.toBuilder()
 				.pattern(replaceWithDots(relocation.getPattern()))
 				.relocatedPattern(replaceWithDots(relocation.getRelocatedPattern()))
@@ -113,7 +113,7 @@ public final class LibraryHelper {
 	 * @return relative partial Maven path for this library
 	 */
 	@NotNull
-	public static String getPartialPath(@NotNull Library library) {
+	public static String getPartialPath(@NotNull LibraryRequest library) {
 		requireNonNull(library, "library");
 
 		String groupId = library.getGroupId();
@@ -132,7 +132,7 @@ public final class LibraryHelper {
 	 * @return relative Maven path for this library
 	 */
 	@NotNull
-	public static String getPath(@NotNull Library library) {
+	public static String getPath(@NotNull LibraryRequest library) {
 		requireNonNull(library, "library");
 
 		String partialPath = getPartialPath(library);
@@ -154,7 +154,7 @@ public final class LibraryHelper {
 	 * @return path to relocated artifact or null if it has no relocations
 	 */
 	@Nullable
-	public static String getRelocatedPath(@NotNull Library library) {
+	public static String getRelocatedPath(@NotNull LibraryRequest library) {
 		requireNonNull(library, "library");
 
 		if (!library.hasRelocations())

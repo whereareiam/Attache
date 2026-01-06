@@ -2,7 +2,7 @@ package me.whereareiam.attache.common.classloader;
 
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
-import me.whereareiam.attache.model.Library;
+import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.type.Level;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -55,7 +55,7 @@ class IsolatedClassLoaderTest {
 
 	@Test
 	void testLoadLibraryInIsolatedClassLoader() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -86,7 +86,7 @@ class IsolatedClassLoaderTest {
 	void testIsolatedClassLoaderWithCustomId() throws Exception {
 		String loaderId = "test-loader-id";
 
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -119,7 +119,7 @@ class IsolatedClassLoaderTest {
 		String loaderId1 = "loader-1";
 		String loaderId2 = "loader-2";
 
-		Library library1 = Library.builder()
+		LibraryRequest library1 = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -127,7 +127,7 @@ class IsolatedClassLoaderTest {
 				.loader(loaderId1)
 				.build();
 
-		Library library2 = Library.builder()
+		LibraryRequest library2 = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -162,7 +162,7 @@ class IsolatedClassLoaderTest {
 
 	@Test
 	void testGlobalIsolatedClassLoader() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -184,7 +184,7 @@ class IsolatedClassLoaderTest {
 
 	@Test
 	void testNonIsolatedLoadDoesNotUseIsolatedClassLoader() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -212,7 +212,7 @@ class IsolatedClassLoaderTest {
 	void testSameLoaderIdReusesClassLoader() {
 		String loaderId = "shared-loader";
 
-		Library library1 = Library.builder()
+		LibraryRequest library1 = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -225,7 +225,7 @@ class IsolatedClassLoaderTest {
 		IsolatedClassLoader classLoader1 = libraryManager.getIsolatedClassLoaderById(loaderId);
 
 		// Load second library with same ID
-		Library library2 = Library.builder()
+		LibraryRequest library2 = LibraryRequest.builder()
 				.groupId("org.apache.commons")
 				.artifactId("commons-lang3")
 				.version("3.12.0")

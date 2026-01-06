@@ -2,20 +2,20 @@ package me.whereareiam.attache.common;
 
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.common.util.LibraryHelper;
-import me.whereareiam.attache.model.Library;
-import me.whereareiam.attache.model.Relocation;
+import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.model.RelocationRule;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for {@link Library} model.
+ * Unit tests for {@link LibraryRequest} model.
  */
 class LibraryTest {
 
 	@Test
 	void testBasicLibraryBuild() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -32,7 +32,7 @@ class LibraryTest {
 	@Test
 	void testLibraryWithBracesReplacement() {
 		// Model should store values as-is
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com{}example{}library")
 				.artifactId("test{}lib")
 				.version("1.0.0")
@@ -43,14 +43,14 @@ class LibraryTest {
 		assertEquals("test{}lib", library.getArtifactId());
 
 		// After normalization, braces should be replaced
-		Library normalized = LibraryHelper.normalize(library);
+		LibraryRequest normalized = LibraryHelper.normalize(library);
 		assertEquals("com.example.library", normalized.getGroupId());
 		assertEquals("test.lib", normalized.getArtifactId());
 	}
 
 	@Test
 	void testLibraryWithClassifier() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -64,7 +64,7 @@ class LibraryTest {
 	@Test
 	void testLibraryWithChecksum() {
 		byte[] checksum = new byte[32]; // SHA-256 = 32 bytes
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -79,12 +79,12 @@ class LibraryTest {
 
 	@Test
 	void testLibraryWithRelocations() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
 				.relocation(
-						Relocation.builder()
+						RelocationRule.builder()
 								.pattern("com{}example")
 								.relocatedPattern("me{}myapp{}libs{}example")
 								.build())
@@ -97,7 +97,7 @@ class LibraryTest {
 
 	@Test
 	void testLibraryWithIsolatedLoad() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -111,7 +111,7 @@ class LibraryTest {
 
 	@Test
 	void testLibraryWithRepositories() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -126,7 +126,7 @@ class LibraryTest {
 
 	@Test
 	void testSnapshotDetection() {
-		Library snapshot = Library.builder()
+		LibraryRequest snapshot = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0-SNAPSHOT")
@@ -134,7 +134,7 @@ class LibraryTest {
 
 		assertTrue(snapshot.isSnapshot());
 
-		Library release = Library.builder()
+		LibraryRequest release = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -145,7 +145,7 @@ class LibraryTest {
 
 	@Test
 	void testToString() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -153,7 +153,7 @@ class LibraryTest {
 
 		assertEquals("com.example:test-lib:1.0.0", library.toString());
 
-		Library withClassifier = Library.builder()
+		LibraryRequest withClassifier = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")
@@ -165,7 +165,7 @@ class LibraryTest {
 
 	@Test
 	void testLibraryPath() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.example")
 				.artifactId("test-lib")
 				.version("1.0.0")

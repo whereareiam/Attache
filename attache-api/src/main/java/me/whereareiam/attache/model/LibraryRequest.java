@@ -10,24 +10,22 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 
 /**
- * An immutable representation of a Maven artifact that can be downloaded,
- * relocated and then loaded into a classloader classpath at runtime.
- *
- * @see #builder()
+ * Canonical request model for Attache's library resolution pipeline.
+ * Users can adapt their own models into this request via {@link me.whereareiam.attache.LibraryAdapter}.
  */
 @Value
 @Builder(toBuilder = true)
-public class Library {
+public class LibraryRequest {
 	/**
-	 * Direct download URLs for this library
+	 * Direct download URLs for this library.
 	 */
 	@NotNull
 	@NonNull
-	@lombok.Singular
+	@Singular
 	Collection<String> urls;
 
 	/**
-	 * Repository URLs for this library
+	 * Repository URLs for this library.
 	 */
 	@NotNull
 	@NonNull
@@ -35,7 +33,7 @@ public class Library {
 	Collection<String> repositories;
 
 	/**
-	 * Fallback repository URLs for this library
+	 * Fallback repository URLs for this library.
 	 */
 	@NotNull
 	@NonNull
@@ -43,44 +41,44 @@ public class Library {
 	Collection<String> fallbackRepositories;
 
 	/**
-	 * Maven group ID
+	 * Maven group ID.
 	 */
 	@NotNull
 	@NonNull
 	String groupId;
 
 	/**
-	 * Maven artifact ID
+	 * Maven artifact ID.
 	 */
 	@NotNull
 	@NonNull
 	String artifactId;
 
 	/**
-	 * Artifact version
+	 * Artifact version.
 	 */
 	@NotNull
 	@NonNull
 	String version;
 
 	/**
-	 * Artifact classifier
+	 * Artifact classifier.
 	 */
 	@Nullable
 	String classifier;
 
 	/**
-	 * Binary SHA-256 checksum for this library's jar file
+	 * Binary SHA-256 checksum for this library's jar file.
 	 */
 	byte[] checksum;
 
 	/**
-	 * Jar relocations to apply
+	 * Jar relocations to apply.
 	 */
 	@NotNull
 	@NonNull
 	@Singular("relocation")
-	Collection<Relocation> relocations;
+	Collection<RelocationRule> relocations;
 
 	/**
 	 * Should this library be loaded in an isolated class loader?
@@ -89,7 +87,7 @@ public class Library {
 	boolean isolated = false;
 
 	/**
-	 * The isolated loader id for this library
+	 * The isolated loader id for this library.
 	 */
 	@Nullable
 	String loader;
@@ -101,7 +99,7 @@ public class Library {
 	boolean resolveTransitiveDependencies = false;
 
 	/**
-	 * Transitive dependencies that would be excluded on transitive resolution
+	 * Transitive dependencies that should be excluded on transitive resolution.
 	 */
 	@NotNull
 	@NonNull

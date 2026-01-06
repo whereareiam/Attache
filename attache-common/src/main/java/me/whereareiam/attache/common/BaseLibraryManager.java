@@ -1,5 +1,6 @@
 package me.whereareiam.attache.common;
 
+import me.whereareiam.attache.LibraryAdapter;
 import me.whereareiam.attache.LibraryManager;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.Repositories;
@@ -8,8 +9,8 @@ import me.whereareiam.attache.common.logging.Logger;
 import me.whereareiam.attache.common.transitive.TransitiveDependencyHelper;
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.common.util.RelocationHelper;
-import me.whereareiam.attache.model.Library;
-import me.whereareiam.attache.model.Relocation;
+import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.type.Level;
 import me.whereareiam.attache.type.ResolutionMode;
 import me.whereareiam.attache.type.VerbosityMode;
@@ -92,12 +93,17 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	/**
 	 * Loaded libraries tracking for summary
 	 */
-	protected final List<Library> loadedLibraries = new ArrayList<>();
+	protected final List<LibraryRequest> loadedLibraries = new ArrayList<>();
 
 	/**
 	 * Failed libraries tracking for summary
 	 */
-	protected final Map<Library, Exception> failedLibraries = new HashMap<>();
+	protected final Map<LibraryRequest, Exception> failedLibraries = new HashMap<>();
+
+	/**
+	 * Library adapter registry keyed by model type.
+	 */
+	protected final Map<Class<?>, LibraryAdapter<?>> libraryAdapters = new LinkedHashMap<>();
 
 	/**
 	 * Creates a new library manager.
@@ -114,6 +120,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		this.loggingHelper = requireNonNull(loggingHelper, "loggingHelper");
 		this.saveDirectory = requireNonNull(dataDirectory, "dataDirectory").toAbsolutePath().resolve(requireNonNull(directoryName, "directoryName"));
 		this.logger = new Logger(loggingHelper);
+		registerLibraryAdapter(LibraryRequest.class, request -> request);
 	}
 
 	/**
@@ -133,7 +140,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 * @param file    the file to add
 	 */
 	@SuppressWarnings("resource") // Classloaders are closed in close() method
-	protected void addToIsolatedClasspath(@NotNull Library library, @NotNull Path file) {
+	protected void addToIsolatedClasspath(@NotNull LibraryRequest library, @NotNull Path file) {
 		IsolatedClassLoader classLoader;
 		String loaderId = library.getLoader();
 		if (loaderId != null) {
@@ -165,6 +172,31 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	@NotNull
 	public Path getSaveDirectory() {
 		return saveDirectory;
+	}
+
+	@Override
+	public <T> void registerLibraryAdapter(@NotNull Class<T> type, @NotNull LibraryAdapter<? super T> adapter) {
+		requireNonNull(type, "type");
+		requireNonNull(adapter, "adapter");
+		synchronized (libraryAdapters) {
+			libraryAdapters.put(type, adapter);
+		}
+	}
+
+	@Override
+	public void unregisterLibraryAdapter(@NotNull Class<?> type) {
+		requireNonNull(type, "type");
+		synchronized (libraryAdapters) {
+			libraryAdapters.remove(type);
+		}
+	}
+
+	@Override
+	public boolean hasLibraryAdapter(@NotNull Class<?> type) {
+		requireNonNull(type, "type");
+		synchronized (libraryAdapters) {
+			return libraryAdapters.containsKey(type);
+		}
 	}
 
 	@Override
@@ -248,10 +280,41 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 		// Show failed libraries for troubleshooting
 		if (!failedLibraries.isEmpty() && verbosityMode != VerbosityMode.QUIET) {
-			for (Map.Entry<Library, Exception> entry : failedLibraries.entrySet()) {
+			for (Map.Entry<LibraryRequest, Exception> entry : failedLibraries.entrySet()) {
 				logger.warn("  Failed: " + entry.getKey() + " - " + entry.getValue().getMessage());
 			}
 		}
+	}
+
+	@NotNull
+	protected LibraryRequest adaptLibrary(@NotNull Object library) {
+		requireNonNull(library, "library");
+
+		LibraryAdapter<Object> adapter = resolveAdapter(library.getClass());
+		if (adapter == null) {
+			throw new IllegalArgumentException("No LibraryAdapter registered for " + library.getClass().getName());
+		}
+
+		return adapter.adapt(library);
+	}
+
+	@SuppressWarnings("unchecked")
+	@Nullable
+	private LibraryAdapter<Object> resolveAdapter(@NotNull Class<?> type) {
+		synchronized (libraryAdapters) {
+			LibraryAdapter<?> adapter = libraryAdapters.get(type);
+			if (adapter != null) {
+				return (LibraryAdapter<Object>) adapter;
+			}
+
+			for (Map.Entry<Class<?>, LibraryAdapter<?>> entry : libraryAdapters.entrySet()) {
+				if (entry.getKey().isAssignableFrom(type)) {
+					return (LibraryAdapter<Object>) entry.getValue();
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -260,7 +323,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 * @param library the library to resolve
 	 * @return download URLs
 	 */
-	protected Collection<String> resolveLibrary(@NotNull Library library) {
+	protected Collection<String> resolveLibrary(@NotNull LibraryRequest library) {
 		Set<String> urls = new LinkedHashSet<>(requireNonNull(library, "library").getUrls());
 		Collection<String> repos = resolveRepositories(library);
 
@@ -277,7 +340,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 * @param library the library to resolve repositories for
 	 * @return the resolved repositories
 	 */
-	public Collection<String> resolveRepositories(@NotNull Library library) {
+	public Collection<String> resolveRepositories(@NotNull LibraryRequest library) {
 		return switch (getRepositoryResolutionMode()) {
 			case GLOBAL_FIRST -> Stream.of(
 							getRepositories(),
@@ -353,9 +416,10 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 	@Override
 	@NotNull
-	public Path downloadLibrary(@NotNull Library library) throws IOException, URISyntaxException, NoSuchAlgorithmException {
+	public <T> Path downloadLibrary(@NotNull T library) throws IOException, URISyntaxException, NoSuchAlgorithmException {
+		LibraryRequest adaptedLibrary = adaptLibrary(library);
 		// Normalize the library first (replace {}, normalize repos, etc.)
-		Library normalizedLibrary = LibraryHelper.normalize(requireNonNull(library, "library"));
+		LibraryRequest normalizedLibrary = LibraryHelper.normalize(adaptedLibrary);
 		Path file = saveDirectory.resolve(LibraryHelper.getPath(normalizedLibrary));
 		if (Files.exists(file)) {
 			if (!normalizedLibrary.isSnapshot()) {
@@ -375,7 +439,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 		Collection<String> urls = resolveLibrary(normalizedLibrary);
 		if (urls.isEmpty())
-			throw new RuntimeException("Library '" + library + "' couldn't be resolved, add a repository");
+			throw new RuntimeException("Library '" + normalizedLibrary + "' couldn't be resolved, add a repository");
 
 		MessageDigest md = null;
 		if (normalizedLibrary.hasChecksum())
@@ -432,7 +496,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 * @return the relocated file
 	 */
 	@NotNull
-	protected Path relocate(@NotNull Path in, @NotNull String out, @NotNull Collection<Relocation> relocations) {
+	protected Path relocate(@NotNull Path in, @NotNull String out, @NotNull Collection<RelocationRule> relocations) {
 		requireNonNull(in, "in");
 		requireNonNull(out, "out");
 		requireNonNull(relocations, "relocations");
@@ -475,9 +539,9 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 *
 	 * @param library the primary library for which transitive libraries need to be resolved and loaded.
 	 * @throws NullPointerException if the provided library is null.
-	 * @see #loadLibrary(Library)
+	 * @see #loadLibrary(Object)
 	 */
-	protected void resolveTransitiveLibraries(@NotNull Library library) {
+	protected void resolveTransitiveLibraries(@NotNull LibraryRequest library) {
 		requireNonNull(library, "library");
 
 		synchronized (this) {
@@ -485,58 +549,58 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 				transitiveDependencyHelper = new TransitiveDependencyHelper(this, saveDirectory);
 		}
 
-		for (Library transitiveLibrary : transitiveDependencyHelper.findTransitiveLibraries(library))
+		for (LibraryRequest transitiveLibrary : transitiveDependencyHelper.findTransitiveLibraries(library))
 			loadLibrary(transitiveLibrary);
 	}
 
 	@Override
-	public void loadLibrary(@NotNull Library library, @NotNull Path file) {
-		requireNonNull(library, "library");
+	public <T> void loadLibrary(@NotNull T library, @NotNull Path file) {
+		LibraryRequest request = adaptLibrary(library);
 		requireNonNull(file, "file");
 
-		if (library.isIsolated()) {
-			addToIsolatedClasspath(library, file);
+		if (request.isIsolated()) {
+			addToIsolatedClasspath(request, file);
 		} else {
 			addToClasspath(file);
 		}
 	}
 
 	@Override
-	public void loadLibrary(@NotNull Library library) {
-		requireNonNull(library, "library");
+	public <T> void loadLibrary(@NotNull T library) {
+		LibraryRequest request = adaptLibrary(library);
 
 		// Log based on verbosity mode
 		switch (verbosityMode) {
-			case VERBOSE, NORMAL -> logger.info("Loading library " + library);
-			case SUMMARY -> logger.debug("Loading library " + library);
+			case VERBOSE, NORMAL -> logger.info("Loading library " + request);
+			case SUMMARY -> logger.debug("Loading library " + request);
 			case QUIET -> { /* No logging */ }
 		}
 
 		try {
-			Path file = downloadLibrary(library);
+			Path file = downloadLibrary(request);
 
 			// Resolve transitive dependencies before loading the main library
-			if (library.isResolveTransitiveDependencies())
-				resolveTransitiveLibraries(library);
+			if (request.isResolveTransitiveDependencies())
+				resolveTransitiveLibraries(request);
 
-			loadLibrary(library, file);
+			loadLibrary(request, file);
 
 			// Track successful load
-			loadedLibraries.add(library);
+			loadedLibraries.add(request);
 
 			// Log success based on verbosity
 			if (verbosityMode == VerbosityMode.VERBOSE)
-				logger.info("Successfully loaded " + library);
+				logger.info("Successfully loaded " + request);
 		} catch (IOException | URISyntaxException | NoSuchAlgorithmException e) {
 			// Always log errors, track failure
-			failedLibraries.put(library, e);
-			throw new RuntimeException("Failed to load library " + library, e);
+			failedLibraries.put(request, e);
+			throw new RuntimeException("Failed to load library " + request, e);
 		}
 	}
 
 	@Override
-	public void loadLibraries(@NotNull Library... libraries) {
-		for (Library library : libraries)
+	public final <T> void loadLibraries(@NotNull T... libraries) {
+		for (T library : libraries)
 			loadLibrary(library);
 
 		// Auto-print summary for SUMMARY and QUIET modes
@@ -545,8 +609,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	}
 
 	@Override
-	public void loadLibraries(@NotNull Collection<Library> libraries) {
-		for (Library library : libraries)
+	public <T> void loadLibraries(@NotNull Collection<? extends T> libraries) {
+		for (T library : libraries)
 			loadLibrary(library);
 
 		// Auto-print summary for SUMMARY and QUIET modes

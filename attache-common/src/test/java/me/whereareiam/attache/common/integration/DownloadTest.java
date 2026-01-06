@@ -2,7 +2,7 @@ package me.whereareiam.attache.common.integration;
 
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
-import me.whereareiam.attache.model.Library;
+import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.type.Level;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +41,7 @@ class DownloadTest {
 
 	@Test
 	void testDownloadLibraryFromMavenCentral() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -57,7 +57,7 @@ class DownloadTest {
 
 	@Test
 	void testDownloadLibraryWithChecksumValidation() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -79,7 +79,7 @@ class DownloadTest {
 
 	@Test
 	void testDownloadLibraryCaching() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -102,7 +102,7 @@ class DownloadTest {
 
 	@Test
 	void testDownloadLibraryWithInvalidChecksum() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -115,7 +115,7 @@ class DownloadTest {
 
 	@Test
 	void testDownloadNonExistentLibrary() {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId("com.nonexistent")
 				.artifactId("fake-library")
 				.version("999.999.999")
@@ -128,7 +128,7 @@ class DownloadTest {
 	@Test
 	void testDownloadLibraryWithClassifier() throws Exception {
 		// commons-text has a "javadoc" classifier
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)
@@ -144,7 +144,7 @@ class DownloadTest {
 
 	@Test
 	void testLibraryPath() throws Exception {
-		Library library = Library.builder()
+		LibraryRequest library = LibraryRequest.builder()
 				.groupId(TEST_GROUP_ID)
 				.artifactId(TEST_ARTIFACT_ID)
 				.version(TEST_VERSION)

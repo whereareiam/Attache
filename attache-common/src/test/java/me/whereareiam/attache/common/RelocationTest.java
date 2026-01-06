@@ -1,6 +1,6 @@
 package me.whereareiam.attache.common;
 
-import me.whereareiam.attache.model.Relocation;
+import me.whereareiam.attache.model.RelocationRule;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -10,13 +10,13 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for {@link Relocation} class.
+ * Unit tests for {@link RelocationRule} class.
  */
 class RelocationTest {
 
 	@Test
 	void testBasicRelocationWithConstructor() {
-		Relocation relocation = new Relocation("com.example", "me.myapp.libs.example",
+		RelocationRule relocation = new RelocationRule("com.example", "me.myapp.libs.example",
 				Collections.emptySet(), Collections.emptySet());
 
 		assertEquals("com.example", relocation.getPattern());
@@ -27,7 +27,7 @@ class RelocationTest {
 
 	@Test
 	void testBasicRelocationWithBuilder() {
-		Relocation relocation = Relocation.builder()
+		RelocationRule relocation = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp.libs.example")
 				.build();
@@ -43,7 +43,7 @@ class RelocationTest {
 		Collection<String> includes = Arrays.asList("com.example.include1", "com.example.include2");
 		Collection<String> excludes = Arrays.asList("com.example.exclude1", "com.example.exclude2");
 
-		Relocation relocation = Relocation.builder()
+		RelocationRule relocation = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp.libs.example")
 				.includes(includes)
@@ -60,17 +60,17 @@ class RelocationTest {
 
 	@Test
 	void testRelocationEquality() {
-		Relocation relocation1 = Relocation.builder()
+		RelocationRule relocation1 = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp.libs")
 				.build();
 
-		Relocation relocation2 = Relocation.builder()
+		RelocationRule relocation2 = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp.libs")
 				.build();
 
-		Relocation relocation3 = Relocation.builder()
+		RelocationRule relocation3 = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp.other")
 				.build();
@@ -85,21 +85,21 @@ class RelocationTest {
 		Collection<String> includes = Arrays.asList("inc1", "inc2");
 		Collection<String> excludes = Arrays.asList("exc1", "exc2");
 
-		Relocation relocation1 = Relocation.builder()
+		RelocationRule relocation1 = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp")
 				.includes(includes)
 				.excludes(excludes)
 				.build();
 
-		Relocation relocation2 = Relocation.builder()
+		RelocationRule relocation2 = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp")
 				.includes(includes)
 				.excludes(excludes)
 				.build();
 
-		Relocation relocation3 = Relocation.builder()
+		RelocationRule relocation3 = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp")
 				.includes(includes)
@@ -112,12 +112,12 @@ class RelocationTest {
 
 	@Test
 	void testRelocationToBuilder() {
-		Relocation original = Relocation.builder()
+		RelocationRule original = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp")
 				.build();
 
-		Relocation modified = original.toBuilder()
+		RelocationRule modified = original.toBuilder()
 				.relocatedPattern("me.myapp.different")
 				.build();
 
@@ -128,7 +128,7 @@ class RelocationTest {
 
 	@Test
 	void testRelocationDefaultCollections() {
-		Relocation relocation = Relocation.builder()
+		RelocationRule relocation = RelocationRule.builder()
 				.pattern("com.example")
 				.relocatedPattern("me.myapp")
 				.build();
