@@ -1,6 +1,6 @@
 dependencies {
     "api"(project(":attache-api"))
-    "implementation"(libs.jar.relocator)
+    "compileOnly"(libs.jar.relocator)
 }
 
 publishing {
