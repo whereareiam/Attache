@@ -15,6 +15,7 @@ public class LibraryPropertiesAdapter implements LibraryAdapter<LibraryPropertie
 				.groupId(Objects.requireNonNull(library.getGroupId(), "groupId"))
 				.artifactId(Objects.requireNonNull(library.getArtifactId(), "artifactId"))
 				.version(Objects.requireNonNull(library.getVersion(), "version"))
+				.skipIfPresent(library.isSkipIfPresent())
 				.isolated(library.isIsolated())
 				.loader(library.getLoader())
 				.resolveTransitiveDependencies(library.isResolveTransitiveDependencies());

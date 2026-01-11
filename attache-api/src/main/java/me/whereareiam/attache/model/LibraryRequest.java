@@ -81,6 +81,13 @@ public class LibraryRequest {
 	Collection<RelocationRule> relocations;
 
 	/**
+	 * Skip loading this library when it already exists on the classpath.
+	 * Defaults to true and is ignored when relocations are configured.
+	 */
+	@Builder.Default
+	boolean skipIfPresent = true;
+
+	/**
 	 * Should this library be loaded in an isolated class loader?
 	 */
 	@Builder.Default

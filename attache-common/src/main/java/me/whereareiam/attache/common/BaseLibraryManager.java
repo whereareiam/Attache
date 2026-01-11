@@ -298,6 +298,47 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		return adapter.adapt(library);
 	}
 
+	@Nullable
+	protected String findSkipReason(@NotNull LibraryRequest request) {
+		String mavenMetadata = findPresentMavenMetadata(request);
+		if (mavenMetadata != null) {
+			return "maven metadata present: " + mavenMetadata;
+		}
+
+		return null;
+	}
+
+	@Nullable
+	private String findPresentMavenMetadata(@NotNull LibraryRequest request) {
+		if (!request.isSkipIfPresent() || request.hasRelocations()) {
+			return null;
+		}
+
+		String groupId = LibraryHelper.replaceWithDots(request.getGroupId());
+		String artifactId = LibraryHelper.replaceWithDots(request.getArtifactId());
+		String resource = "META-INF/maven/" + groupId.replace('.', '/') + "/" + artifactId + "/pom.properties";
+
+		ClassLoader classLoader = getClass().getClassLoader();
+		return isResourcePresent(classLoader, resource) ? resource : null;
+	}
+
+	private boolean isResourcePresent(@Nullable ClassLoader classLoader, @NotNull String resource) {
+		String normalized = resource.startsWith("/") ? resource.substring(1) : resource;
+		if (classLoader != null && classLoader.getResource(normalized) != null) {
+			return true;
+		}
+
+		return ClassLoader.getSystemResource(normalized) != null;
+	}
+
+	private void logSkippedLibrary(@NotNull LibraryRequest request, @NotNull String reason) {
+		String message = "Skipping library " + request + " (" + reason + ")";
+		switch (verbosityMode) {
+			case VERBOSE, NORMAL -> logger.info(message);
+			case SUMMARY -> logger.debug(message);
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	@Nullable
 	private LibraryAdapter<Object> resolveAdapter(@NotNull Class<?> type) {
@@ -558,6 +599,12 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		LibraryRequest request = adaptLibrary(library);
 		requireNonNull(file, "file");
 
+		String skipReason = findSkipReason(request);
+		if (skipReason != null) {
+			logSkippedLibrary(request, skipReason);
+			return;
+		}
+
 		if (request.isIsolated()) {
 			addToIsolatedClasspath(request, file);
 		} else {
@@ -568,6 +615,12 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	@Override
 	public <T> void loadLibrary(@NotNull T library) {
 		LibraryRequest request = adaptLibrary(library);
+
+		String skipReason = findSkipReason(request);
+		if (skipReason != null) {
+			logSkippedLibrary(request, skipReason);
+			return;
+		}
 
 		// Log based on verbosity mode
 		switch (verbosityMode) {

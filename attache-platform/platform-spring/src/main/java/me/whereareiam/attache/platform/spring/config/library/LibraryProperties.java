@@ -24,6 +24,7 @@ public class LibraryProperties {
     private String version;
     private String classifier;
     private String checksum;
+    private boolean skipIfPresent = true;
     private boolean isolated;
     private String loader;
     private boolean resolveTransitiveDependencies;
