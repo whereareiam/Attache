@@ -18,6 +18,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
+import java.lang.reflect.Method;
 import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -305,6 +306,11 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 			return "maven metadata present: " + mavenMetadata;
 		}
 
+		String classpathJar = findPresentClasspathJar(request);
+		if (classpathJar != null) {
+			return "classpath jar present: " + classpathJar;
+		}
+
 		return null;
 	}
 
@@ -322,10 +328,97 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		return isResourcePresent(classLoader, resource) ? resource : null;
 	}
 
+	@Nullable
+	private String findPresentClasspathJar(@NotNull LibraryRequest request) {
+		if (!request.isSkipIfPresent() || request.hasRelocations())
+			return null;
+
+		String fileName = buildExpectedJarName(request);
+		if (fileName == null)
+			return null;
+
+		ClassLoader classLoader = getClass().getClassLoader();
+		String jarPath = findMatchingJarPath(classLoader, fileName);
+		if (jarPath != null)
+			return jarPath;
+
+		String classPath = System.getProperty("java.class.path");
+		if (classPath == null || classPath.isBlank())
+			return null;
+
+		for (String entry : classPath.split(File.pathSeparator))
+			if (entry.endsWith(fileName))
+				return entry;
+
+		return null;
+	}
+
+	@Nullable
+	private String buildExpectedJarName(@NotNull LibraryRequest request) {
+		String artifactId = LibraryHelper.replaceWithDots(request.getArtifactId());
+		String version = LibraryHelper.replaceWithDots(request.getVersion());
+		if (artifactId.isBlank() || version.isBlank())
+			return null;
+
+		StringBuilder name = new StringBuilder(artifactId).append('-').append(version);
+		if (request.hasClassifier()) name.append('-').append(request.getClassifier());
+
+		return name.append(".jar").toString();
+	}
+
+	@Nullable
+	private String findMatchingJarPath(@Nullable ClassLoader classLoader, @NotNull String fileName) {
+		if (classLoader == null) return null;
+
+		for (ClassLoader current = classLoader; current != null; current = current.getParent()) {
+			if (current instanceof URLClassLoader urlClassLoader) {
+				String found = matchJarUrl(urlClassLoader.getURLs(), fileName);
+				if (found != null) return found;
+			}
+
+			URL[] urls = reflectUrls(current);
+			String found = matchJarUrl(urls, fileName);
+			if (found != null) return found;
+		}
+
+		return null;
+	}
+
+	@Nullable
+	private String matchJarUrl(@Nullable URL[] urls, @NotNull String fileName) {
+		if (urls == null) return null;
+
+		for (URL url : urls) {
+			if (url == null)
+				continue;
+
+			String path = url.getPath();
+			if (path != null && path.endsWith(fileName))
+				return path;
+		}
+
+		return null;
+	}
+
+	@Nullable
+	private URL[] reflectUrls(@NotNull ClassLoader classLoader) {
+		try {
+			Method method = classLoader.getClass().getMethod("getURLs");
+			Object result = method.invoke(classLoader);
+
+			return (URL[]) result;
+		} catch (ReflectiveOperationException | ClassCastException ignored) {
+			return null;
+		}
+	}
+
 	private boolean isResourcePresent(@Nullable ClassLoader classLoader, @NotNull String resource) {
 		String normalized = resource.startsWith("/") ? resource.substring(1) : resource;
-		if (classLoader != null && classLoader.getResource(normalized) != null) {
-			return true;
+		if (classLoader != null) {
+			for (ClassLoader current = classLoader; current != null; current = current.getParent()) {
+				if (current.getResource(normalized) != null)
+					return true;
+			}
 		}
 
 		return ClassLoader.getSystemResource(normalized) != null;
