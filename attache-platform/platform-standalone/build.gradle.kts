@@ -1,3 +1,12 @@
+plugins {
+    id("attache.java-common")
+}
+
+dependencies {
+    api(projects.attacheApi)
+    api(projects.attacheCommon)
+}
+
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
@@ -9,8 +18,4 @@ publishing {
             }
         }
     }
-}
-
-dependencies {
-    "api"(project(":attache-common"))
 }

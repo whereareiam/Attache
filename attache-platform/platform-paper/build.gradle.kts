@@ -1,12 +1,14 @@
-repositories {
-    maven("https://repo.papermc.io/repository/maven-public/")
+plugins {
+    id("attache.java-common")
 }
 
 dependencies {
-    "compileOnly"(libs.paper)
+    api(projects.attacheApi)
+    implementation(projects.attacheCommon)
+    compileOnly(libs.paper)
 }
 
-tasks.withType<JavaCompile> {
+tasks.withType<JavaCompile>().configureEach {
     sourceCompatibility = JavaVersion.VERSION_21.toString()
     targetCompatibility = JavaVersion.VERSION_21.toString()
 }
@@ -23,4 +25,3 @@ publishing {
         }
     }
 }
-

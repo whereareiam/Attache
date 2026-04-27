@@ -1,3 +1,7 @@
+plugins {
+    id("attache.java-common")
+}
+
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
@@ -10,4 +14,3 @@ publishing {
         }
     }
 }
-

@@ -1,6 +1,10 @@
+plugins {
+    id("attache.java-common")
+}
+
 dependencies {
-    "api"(project(":attache-api"))
-    "compileOnly"(libs.jar.relocator)
+    api(projects.attacheApi)
+    compileOnly(libs.jar.relocator)
 }
 
 publishing {
@@ -15,4 +19,3 @@ publishing {
         }
     }
 }
-

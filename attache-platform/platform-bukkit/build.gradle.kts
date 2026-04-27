@@ -1,14 +1,11 @@
-repositories {
-    maven("https://hub.spigotmc.org/nexus/content/groups/public/")
+plugins {
+    id("attache.java-common")
 }
 
 dependencies {
-    "compileOnly"(libs.bukkit)
-}
-
-tasks.withType<JavaCompile> {
-    sourceCompatibility = JavaVersion.VERSION_17.toString()
-    targetCompatibility = JavaVersion.VERSION_17.toString()
+    api(projects.attacheApi)
+    implementation(projects.attacheCommon)
+    compileOnly(libs.bukkit)
 }
 
 publishing {
