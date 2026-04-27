@@ -31,6 +31,8 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 	 */
 	@NotNull
 	private final PluginContainer pluginContainer;
+	@NotNull
+	private final ClassLoader descriptorClassLoader;
 
 	/**
 	 * Creates a new Velocity library manager.
@@ -67,9 +69,26 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 	 * @param directoryName   download directory name
 	 */
 	public VelocityLibraryManager(@NotNull ProxyServer proxyServer, @NotNull PluginContainer pluginContainer, @NotNull LoggingHelper loggingHelper, @NotNull Path dataDirectory, @NotNull String directoryName) {
+		this(proxyServer, pluginContainer, loggingHelper, dataDirectory, directoryName, true);
+	}
+
+	public VelocityLibraryManager(
+			@NotNull ProxyServer proxyServer,
+			@NotNull PluginContainer pluginContainer,
+			@NotNull LoggingHelper loggingHelper,
+			@NotNull Path dataDirectory,
+			@NotNull String directoryName,
+			boolean autoLoadDescriptors
+	) {
 		super(loggingHelper, dataDirectory, directoryName);
 		this.proxyServer = requireNonNull(proxyServer, "proxyServer");
 		this.pluginContainer = requireNonNull(pluginContainer, "pluginContainer");
+		this.descriptorClassLoader = this.pluginContainer.getInstance()
+				.map(instance -> instance.getClass().getClassLoader())
+				.orElseGet(() -> getClass().getClassLoader());
+		if (autoLoadDescriptors) {
+			loadClasspathDescriptors();
+		}
 	}
 
 	/**
@@ -127,5 +146,9 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 		
 		return julLogger;
 	}
-}
 
+	@Override
+	protected @NotNull ClassLoader getDescriptorClassLoader() {
+		return descriptorClassLoader;
+	}
+}

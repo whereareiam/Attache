@@ -65,6 +65,16 @@ public class StandaloneLibraryManager extends BaseLibraryManager {
 			@NotNull String directoryName,
 			@NotNull ClassLoader classLoader
 	) {
+		this(loggingHelper, dataDirectory, directoryName, classLoader, true);
+	}
+
+	public StandaloneLibraryManager(
+			@NotNull LoggingHelper loggingHelper,
+			@NotNull Path dataDirectory,
+			@NotNull String directoryName,
+			@NotNull ClassLoader classLoader,
+			boolean autoLoadDescriptors
+	) {
 		super(loggingHelper, dataDirectory, directoryName);
 		this.targetLoader = Objects.requireNonNull(classLoader, "classLoader");
 		this.addPathMethod = findPublicMethod(targetLoader, "addPath", Path.class);
@@ -73,22 +83,19 @@ public class StandaloneLibraryManager extends BaseLibraryManager {
 		if (targetLoader == ClassLoader.getSystemClassLoader()) {
 			this.urlClassLoaderHelper = null;
 			this.systemClassLoaderHelper = new SystemClassLoaderHelper(targetLoader);
-			return;
-		}
-
-		if (addPathMethod != null || addUrlMethod != null) {
+		} else if (addPathMethod != null || addUrlMethod != null) {
 			this.urlClassLoaderHelper = null;
 			this.systemClassLoaderHelper = null;
-			return;
-		}
-
-		if (targetLoader instanceof URLClassLoader) {
+		} else if (targetLoader instanceof URLClassLoader) {
 			this.urlClassLoaderHelper = new URLClassLoaderHelper((URLClassLoader) targetLoader);
 			this.systemClassLoaderHelper = null;
-			return;
+		} else {
+			throw new RuntimeException("Unsupported class loader: " + targetLoader.getClass().getName());
 		}
 
-		throw new RuntimeException("Unsupported class loader: " + targetLoader.getClass().getName());
+		if (autoLoadDescriptors) {
+			loadClasspathDescriptors();
+		}
 	}
 
 	@Override
@@ -131,5 +138,9 @@ public class StandaloneLibraryManager extends BaseLibraryManager {
 			return null;
 		}
 	}
-}
 
+	@Override
+	protected @NotNull ClassLoader getDescriptorClassLoader() {
+		return targetLoader;
+	}
+}

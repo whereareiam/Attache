@@ -6,11 +6,13 @@ import me.whereareiam.attache.LibraryManager;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
+import me.whereareiam.attache.common.descriptor.ClasspathDescriptorLoader;
 import me.whereareiam.attache.common.loader.ParallelLibraryLoader;
 import me.whereareiam.attache.common.loader.SequentialLibraryLoader;
 import me.whereareiam.attache.common.logging.Logger;
 import me.whereareiam.attache.common.transitive.TransitiveDependencyHelper;
 import me.whereareiam.attache.common.util.LibraryHelper;
+import me.whereareiam.attache.descriptor.AttacheDescriptorLibrary;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.type.Level;
@@ -109,6 +111,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	private final RelocationCoordinator relocationCoordinator;
 	private final LibraryBatchLoader libraryBatchLoader;
 	private final LibraryLoadMode libraryLoadMode;
+	private final ClasspathDescriptorLoader classpathDescriptorLoader = new ClasspathDescriptorLoader();
+	private boolean classpathDescriptorsLoaded;
 
 	/**
 	 * Creates a new library manager.
@@ -786,6 +790,65 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		return logger;
 	}
 
+	@NotNull
+	protected ClassLoader getDescriptorClassLoader() {
+		return getClass().getClassLoader();
+	}
+
+	public final synchronized void loadClasspathDescriptors() {
+		if (classpathDescriptorsLoaded) {
+			return;
+		}
+
+		List<ClasspathDescriptorLoader.LoadedDescriptorFragment> fragments = classpathDescriptorLoader.load(
+				getDescriptorClassLoader(),
+				getClass()
+		);
+		if (fragments.isEmpty()) {
+			classpathDescriptorsLoaded = true;
+			return;
+		}
+
+		boolean addMavenCentral = false;
+		LinkedHashSet<String> fragmentRepositories = new LinkedHashSet<>();
+		LinkedHashMap<String, DescriptorLibraryOrigin> libraries = new LinkedHashMap<>();
+
+		for (ClasspathDescriptorLoader.LoadedDescriptorFragment loaded : fragments) {
+			if (loaded.fragment().isAddMavenCentral()) {
+				addMavenCentral = true;
+			}
+			fragmentRepositories.addAll(loaded.fragment().getRepositories());
+
+			for (AttacheDescriptorLibrary library : loaded.fragment().getLibraries()) {
+				String key = library.coordinatesKey();
+				DescriptorLibraryOrigin existing = libraries.get(key);
+				if (existing == null) {
+					libraries.put(key, new DescriptorLibraryOrigin(library, loaded.location()));
+					continue;
+				}
+
+				if (!existing.library.sameDefinition(library)) {
+					throw new IllegalStateException("Conflicting Attache descriptor definitions for " + key
+							+ " in " + existing.location + " and " + loaded.location());
+				}
+			}
+		}
+
+		if (addMavenCentral) {
+			addMavenCentral();
+		}
+		fragmentRepositories.forEach(this::addRepository);
+
+		if (!libraries.isEmpty()) {
+			List<LibraryRequest> requests = libraries.values().stream()
+					.map(origin -> origin.library.toLibraryRequest())
+					.toList();
+			loadLibraries(requests);
+		}
+
+		classpathDescriptorsLoaded = true;
+	}
+
 	/**
 	 * Gets the global isolated class loader.
 	 *
@@ -844,5 +907,15 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		}
 
 		isolatedLibraries.clear();
+	}
+
+	private static final class DescriptorLibraryOrigin {
+		private final AttacheDescriptorLibrary library;
+		private final String location;
+
+		private DescriptorLibraryOrigin(@NotNull AttacheDescriptorLibrary library, @NotNull String location) {
+			this.library = library;
+			this.location = location;
+		}
 	}
 }

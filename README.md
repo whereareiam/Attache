@@ -70,6 +70,59 @@ shadowJar {
 }
 ```
 
+### Gradle Plugin
+
+Attache can also generate runtime descriptor fragments directly from your build.
+
+```gradle
+plugins {
+    id("me.whereareiam.attache") version "VERSION"
+}
+```
+
+Declare Attache-managed libraries through dependency buckets:
+
+```kotlin
+dependencies {
+    attache(libs.guice)
+    attache(libs.configura)
+    attacheOnly(libs.jedis)
+}
+```
+
+Use the `attache {}` block only for Attache-specific metadata:
+
+```kotlin
+attache {
+    repository("https://maven.whereareiam.me/release")
+    repository("https://maven.whereareiam.me/development")
+
+    library(libs.guice) {
+        transitive.set(true)
+        relocate("com{}google{}inject", "me.whereareiam.identica.library.guice")
+        relocate("com{}google{}common", "me.whereareiam.identica.library.guava")
+    }
+}
+```
+
+The plugin writes one descriptor fragment per Gradle project to:
+
+```text
+META-INF/attache/<project-path>/attache.json
+```
+
+Examples:
+
+```text
+project(":identica-common")
+-> META-INF/attache/identica-common/attache.json
+
+project(":identica-provider:provider-premium:premium")
+-> META-INF/attache/identica-provider/provider-premium/premium/attache.json
+```
+
+At runtime, Attache managers automatically scan `META-INF/attache/**/attache.json`, merge all discovered fragments, and load the declared libraries during construction.
+
 ## Usage
 
 ### Basic Example (Standalone)
@@ -137,6 +190,20 @@ public class MyPlugin extends JavaPlugin {
 	}
 }
 ```
+
+### Zero-Config Runtime Loading
+
+When your jar contains Gradle-generated Attache descriptors, creating a manager is enough:
+
+```java
+VelocityLibraryManager libraryManager = new VelocityLibraryManager(proxyServer, pluginContainer, logger, dataPath, ".libraries");
+```
+
+By default, the manager will:
+
+- discover all `META-INF/attache/**/attache.json` fragments on the classpath
+- merge repositories and library definitions
+- download and load the libraries automatically
 
 ### Spring Boot Example (auto-configuration)
 
@@ -240,4 +307,3 @@ Attache is licensed under the MIT License, maintaining compatibility with the or
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-

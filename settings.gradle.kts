@@ -26,6 +26,8 @@ dependencyResolutionManagement {
 
 include(":attache-api")
 include(":attache-common")
+include(":attache-plugin:gradle")
+project(":attache-plugin:gradle").projectDir = file("attache-plugin/gradle")
 include(":attache-platform:platform-bukkit")
 include(":attache-platform:platform-paper")
 include(":attache-platform:platform-velocity")

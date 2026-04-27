@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     api(projects.attacheApi)
+    implementation(libs.gson)
     compileOnly(libs.jar.relocator)
 }
 

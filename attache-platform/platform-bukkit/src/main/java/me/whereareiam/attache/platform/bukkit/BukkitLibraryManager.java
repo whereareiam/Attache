@@ -6,6 +6,7 @@ import me.whereareiam.attache.common.classloader.URLClassLoaderHelper;
 import me.whereareiam.attache.common.logging.adapter.JDKLoggingHelper;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 import java.net.URLClassLoader;
 import java.nio.file.Path;
@@ -22,6 +23,8 @@ public class BukkitLibraryManager extends BaseLibraryManager {
 	 */
 	@NotNull
 	private final URLClassLoaderHelper classLoaderHelper;
+	@NotNull
+	private final ClassLoader descriptorClassLoader;
 
 	/**
 	 * Creates a new Bukkit library manager.
@@ -50,13 +53,21 @@ public class BukkitLibraryManager extends BaseLibraryManager {
 	 * @param loggingHelper the log adapter to use
 	 */
 	public BukkitLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper) {
+		this(plugin, directoryName, loggingHelper, true);
+	}
+
+	public BukkitLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper, boolean autoLoadDescriptors) {
 		super(loggingHelper, plugin.getDataFolder().toPath(), directoryName);
 
 		ClassLoader classLoader = plugin.getClass().getClassLoader();
 		if (!(classLoader instanceof URLClassLoader))
 			throw new RuntimeException("Plugin classloader is not a URLClassLoader");
 
+		this.descriptorClassLoader = classLoader;
 		this.classLoaderHelper = new URLClassLoaderHelper((URLClassLoader) classLoader);
+		if (autoLoadDescriptors) {
+			loadClasspathDescriptors();
+		}
 	}
 
 	/**
@@ -68,5 +79,9 @@ public class BukkitLibraryManager extends BaseLibraryManager {
 	protected void addToClasspath(@NotNull Path file) {
 		classLoaderHelper.addToClasspath(file);
 	}
-}
 
+	@Override
+	protected @NonNull ClassLoader getDescriptorClassLoader() {
+		return descriptorClassLoader;
+	}
+}

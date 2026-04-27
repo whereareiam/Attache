@@ -24,6 +24,8 @@ public class PaperLibraryManager extends BaseLibraryManager {
 	 */
 	@NotNull
 	private final URLClassLoaderHelper classLoaderHelper;
+	@NotNull
+	private final ClassLoader descriptorClassLoader;
 
 	/**
 	 * Creates a new Paper library manager.
@@ -52,6 +54,10 @@ public class PaperLibraryManager extends BaseLibraryManager {
 	 * @param loggingHelper the log adapter to use
 	 */
 	public PaperLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper) {
+		this(plugin, directoryName, loggingHelper, true);
+	}
+
+	public PaperLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper, boolean autoLoadDescriptors) {
 		super(loggingHelper, plugin.getDataFolder().toPath(), directoryName);
 
 		ClassLoader cl = plugin.getClass().getClassLoader();
@@ -86,7 +92,11 @@ public class PaperLibraryManager extends BaseLibraryManager {
 			throw new RuntimeException(e); // Should never happen
 		}
 
+		this.descriptorClassLoader = cl;
 		classLoaderHelper = new URLClassLoaderHelper(libraryLoader);
+		if (autoLoadDescriptors) {
+			loadClasspathDescriptors();
+		}
 	}
 
 	/**
@@ -98,5 +108,9 @@ public class PaperLibraryManager extends BaseLibraryManager {
 	protected void addToClasspath(@NotNull Path file) {
 		classLoaderHelper.addToClasspath(file);
 	}
-}
 
+	@Override
+	protected @NotNull ClassLoader getDescriptorClassLoader() {
+		return descriptorClassLoader;
+	}
+}
