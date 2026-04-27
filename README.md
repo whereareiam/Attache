@@ -90,10 +90,10 @@ dependencies {
 }
 ```
 
-Use the `attache {}` block only for Attache-specific metadata:
+Use the `attacheMetadata {}` block only for Attache-specific metadata:
 
 ```kotlin
-attache {
+attacheMetadata {
     repository("https://maven.whereareiam.me/release")
     repository("https://maven.whereareiam.me/development")
 

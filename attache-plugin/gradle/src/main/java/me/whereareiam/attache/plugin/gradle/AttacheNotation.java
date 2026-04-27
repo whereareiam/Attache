@@ -7,9 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 
 public final class AttacheNotation {
-	private AttacheNotation() {
-	}
-
 	@NotNull
 	public static String keyFromNotation(@NotNull String notation) {
 		String[] parts = Objects.requireNonNull(notation, "notation").split(":");

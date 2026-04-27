@@ -1,7 +1,5 @@
-package me.whereareiam.attache.plugin.gradle.extension;
+package me.whereareiam.attache.plugin.gradle.model;
 
-import me.whereareiam.attache.model.ExcludedDependency;
-import me.whereareiam.attache.model.RelocationRule;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
@@ -14,7 +12,7 @@ import java.util.Objects;
 /**
  * Per-library Attache metadata.
  */
-public class AttacheLibrarySpec {
+public class AttacheLibraryMetadata {
 	private final String key;
 	private final Property<Boolean> transitive;
 	private final Property<Boolean> skipIfPresent;
@@ -22,10 +20,10 @@ public class AttacheLibrarySpec {
 	private final Property<String> loader;
 	private final SetProperty<String> repositories;
 	private final SetProperty<String> fallbackRepositories;
-	private final ListProperty<RelocationRule> relocations;
-	private final ListProperty<ExcludedDependency> excludedTransitiveDependencies;
+	private final ListProperty<DescriptorRelocation> relocations;
+	private final ListProperty<DescriptorExcludedDependency> excludedTransitiveDependencies;
 
-	public AttacheLibrarySpec(@NotNull ObjectFactory objects, @NotNull String key) {
+	public AttacheLibraryMetadata(@NotNull ObjectFactory objects, @NotNull String key) {
 		Objects.requireNonNull(objects, "objects");
 		this.key = Objects.requireNonNull(key, "key");
 		this.transitive = objects.property(Boolean.class).convention(false);
@@ -34,8 +32,8 @@ public class AttacheLibrarySpec {
 		this.loader = objects.property(String.class);
 		this.repositories = objects.setProperty(String.class).convention(Collections.emptySet());
 		this.fallbackRepositories = objects.setProperty(String.class).convention(Collections.emptySet());
-		this.relocations = objects.listProperty(RelocationRule.class).convention(Collections.emptyList());
-		this.excludedTransitiveDependencies = objects.listProperty(ExcludedDependency.class).convention(Collections.emptyList());
+		this.relocations = objects.listProperty(DescriptorRelocation.class).convention(Collections.emptyList());
+		this.excludedTransitiveDependencies = objects.listProperty(DescriptorExcludedDependency.class).convention(Collections.emptyList());
 	}
 
 	@NotNull
@@ -74,12 +72,12 @@ public class AttacheLibrarySpec {
 	}
 
 	@NotNull
-	public ListProperty<RelocationRule> getRelocations() {
+	public ListProperty<DescriptorRelocation> getRelocations() {
 		return relocations;
 	}
 
 	@NotNull
-	public ListProperty<ExcludedDependency> getExcludedTransitiveDependencies() {
+	public ListProperty<DescriptorExcludedDependency> getExcludedTransitiveDependencies() {
 		return excludedTransitiveDependencies;
 	}
 
@@ -92,13 +90,10 @@ public class AttacheLibrarySpec {
 	}
 
 	public void relocate(@NotNull String pattern, @NotNull String relocatedPattern) {
-		relocations.add(RelocationRule.builder()
-				.pattern(pattern)
-				.relocatedPattern(relocatedPattern)
-				.build());
+		relocations.add(new DescriptorRelocation(pattern, relocatedPattern));
 	}
 
 	public void excludeTransitive(@NotNull String groupId, @NotNull String artifactId) {
-		excludedTransitiveDependencies.add(new ExcludedDependency(groupId, artifactId));
+		excludedTransitiveDependencies.add(new DescriptorExcludedDependency(groupId, artifactId));
 	}
 }

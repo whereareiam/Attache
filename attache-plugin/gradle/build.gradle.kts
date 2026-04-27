@@ -1,4 +1,5 @@
 import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 
@@ -30,8 +31,9 @@ gradlePlugin {
 }
 
 dependencies {
-    implementation(projects.attacheApi)
     implementation(libs.gson)
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
 
     testImplementation(gradleTestKit())
     testImplementation(libs.junit.jupiter)
@@ -43,6 +45,12 @@ tasks.withType<Test>().configureEach {
 }
 
 extensions.configure<PublishingExtension> {
+    publications.withType<MavenPublication>().configureEach {
+        if (name == "pluginMaven") {
+            artifactId = "attache-gradle-plugin"
+        }
+    }
+
     repositories {
         maven {
             val realm = providers.environmentVariable("PUBLISH_REALM")

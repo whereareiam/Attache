@@ -36,33 +36,35 @@ class AttachePluginFunctionalTest {
 				""");
 
 		writeFile("build.gradle.kts", """
-				plugins {
-				    java
-				    id("me.whereareiam.attache")
-				}
-				
-				dependencies {
-				    attache(libs.gson)
-				    attacheOnly(libs.commonsLang)
-				}
-				
-				attache {
-				    repository("https://repo.example.com/releases")
-				
-				    library(libs.gson) {
-				        transitive.set(true)
-				        relocate("com.google.gson", "example.libs.gson")
-				    }
-				}
-				
-				tasks.register("verifyAttacheCompileScopes") {
-				    doLast {
-				        val compileOnlyNames = configurations.compileOnly.get().allDependencies.map { it.name }.toSet()
-				        check("gson" in compileOnlyNames)
-				        check("commons-lang3" !in compileOnlyNames)
-				    }
-				}
-				""");
+					import me.whereareiam.attache.plugin.gradle.extension.AttacheMetadataExtension
+					
+					plugins {
+					    java
+					    id("me.whereareiam.attache")
+					}
+					
+					dependencies {
+					    attache(libs.gson)
+					    attacheOnly(libs.commonsLang)
+					}
+					
+					extensions.configure<AttacheMetadataExtension>("attacheMetadata") {
+					    repository("https://repo.example.com/releases")
+					
+					    library(libs.gson) {
+					        transitive.set(true)
+					        relocate("com.google.gson", "example.libs.gson")
+					    }
+					}
+					
+					tasks.register("verifyAttacheCompileScopes") {
+					    doLast {
+					        val compileOnlyNames = configurations.compileOnly.get().allDependencies.map { it.name }.toSet()
+					        check("gson" in compileOnlyNames)
+					        check("commons-lang3" !in compileOnlyNames)
+					    }
+					}
+					""");
 
 		BuildResult result = GradleRunner.create()
 				.withProjectDir(tempDir.toFile())

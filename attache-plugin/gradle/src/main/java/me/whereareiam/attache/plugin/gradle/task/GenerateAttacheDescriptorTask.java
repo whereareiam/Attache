@@ -2,12 +2,12 @@ package me.whereareiam.attache.plugin.gradle.task;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import me.whereareiam.attache.descriptor.AttacheDescriptorFragment;
-import me.whereareiam.attache.descriptor.AttacheDescriptorLibrary;
 import me.whereareiam.attache.plugin.gradle.AttachePlugin;
-import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension;
-import me.whereareiam.attache.plugin.gradle.extension.AttacheLibrarySpec;
 import me.whereareiam.attache.plugin.gradle.AttacheNotation;
+import me.whereareiam.attache.plugin.gradle.extension.AttacheMetadataExtension;
+import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
+import me.whereareiam.attache.plugin.gradle.model.DescriptorFragment;
+import me.whereareiam.attache.plugin.gradle.model.DescriptorLibrary;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.Configuration;
@@ -44,7 +44,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 
 	@TaskAction
 	public void generate() throws IOException {
-		AttacheExtension extension = getProject().getExtensions().getByType(AttacheExtension.class);
+		AttacheMetadataExtension extension = getProject().getExtensions().getByType(AttacheMetadataExtension.class);
 		Configuration attache = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_CONFIGURATION);
 		Configuration attacheOnly = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_ONLY_CONFIGURATION);
 		Configuration manifest = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_MANIFEST_CONFIGURATION);
@@ -58,7 +58,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 
 		Map<String, ResolvedArtifact> resolvedArtifacts = resolveArtifacts(manifest);
 
-		AttacheDescriptorFragment fragment = new AttacheDescriptorFragment();
+		DescriptorFragment fragment = new DescriptorFragment();
 		fragment.setProjectPath(getProject().getPath());
 		fragment.setProjectName(getProject().getName());
 		fragment.setAddMavenCentral(extension.getAddMavenCentral().getOrElse(true));
@@ -72,7 +72,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 
 			rejectNonJarArtifact(artifact);
 
-			AttacheDescriptorLibrary library = new AttacheDescriptorLibrary();
+			DescriptorLibrary library = new DescriptorLibrary();
 			library.setGroupId(artifact.getModuleVersion().getId().getGroup());
 			library.setArtifactId(artifact.getName());
 			library.setVersion(artifact.getModuleVersion().getId().getVersion());
@@ -82,7 +82,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 				library.setClassifier(classifier);
 			}
 
-			AttacheLibrarySpec spec = extension.getLibrarySpecs().get(key);
+			AttacheLibraryMetadata spec = extension.getLibraryMetadata().get(key);
 			if (spec != null) {
 				library.setResolveTransitiveDependencies(spec.getTransitive().getOrElse(false));
 				library.setSkipIfPresent(spec.getSkipIfPresent().getOrElse(true));
