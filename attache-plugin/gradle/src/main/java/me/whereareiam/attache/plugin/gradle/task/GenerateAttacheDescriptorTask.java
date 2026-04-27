@@ -116,7 +116,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 	}
 
 	private void validateDependencies(@NotNull Configuration configuration) {
-		for (Dependency dependency : configuration.getDependencies()) {
+		for (Dependency dependency : configuration.getAllDependencies()) {
 			if (dependency instanceof ProjectDependency) {
 				throw new GradleException("Attache configuration does not support project dependencies: " + dependency);
 			}
@@ -127,7 +127,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 	}
 
 	private void collectDependencyKeys(@NotNull Configuration configuration, @NotNull Set<String> dependencyKeys) {
-		for (Dependency dependency : configuration.getDependencies()) {
+		for (Dependency dependency : configuration.getAllDependencies()) {
 			dependencyKeys.add(AttacheNotation.keyFromNotation(dependency.getGroup() + ':' + dependency.getName()));
 		}
 	}

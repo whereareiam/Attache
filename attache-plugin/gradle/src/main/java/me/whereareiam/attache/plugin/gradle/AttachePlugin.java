@@ -13,6 +13,7 @@ import org.gradle.api.tasks.SourceSetContainer;
  */
 public class AttachePlugin implements Plugin<Project> {
 	public static final String ATTACHE_CONFIGURATION = "attache";
+	public static final String ATTACHE_API_CONFIGURATION = "attacheApi";
 	public static final String ATTACHE_ONLY_CONFIGURATION = "attacheOnly";
 	public static final String ATTACHE_MANIFEST_CONFIGURATION = "attacheManifest";
 	public static final String ATTACHE_EXTENSION = "attacheMetadata";
@@ -26,10 +27,16 @@ public class AttachePlugin implements Plugin<Project> {
 				project.getObjects()
 		);
 
+		Configuration attacheApi = project.getConfigurations().create(ATTACHE_API_CONFIGURATION, configuration -> {
+			configuration.setCanBeConsumed(false);
+			configuration.setCanBeResolved(false);
+			configuration.setTransitive(false);
+		});
 		Configuration attache = project.getConfigurations().create(ATTACHE_CONFIGURATION, configuration -> {
 			configuration.setCanBeConsumed(false);
 			configuration.setCanBeResolved(false);
 			configuration.setTransitive(false);
+			configuration.extendsFrom(attacheApi);
 		});
 		Configuration attacheOnly = project.getConfigurations().create(ATTACHE_ONLY_CONFIGURATION, configuration -> {
 			configuration.setCanBeConsumed(false);
@@ -54,5 +61,9 @@ public class AttachePlugin implements Plugin<Project> {
 			sourceSets.named("main", sourceSet -> sourceSet.getResources().srcDir(descriptorTask.map(GenerateAttacheDescriptorTask::getOutputDirectory)));
 			project.getTasks().named(JavaPlugin.PROCESS_RESOURCES_TASK_NAME, task -> task.dependsOn(descriptorTask));
 		});
+
+		project.getPluginManager().withPlugin("java-library", unused ->
+				project.getConfigurations().named("compileOnlyApi", configuration -> configuration.extendsFrom(attacheApi))
+		);
 	}
 }
