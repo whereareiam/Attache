@@ -4,7 +4,6 @@ package me.whereareiam.attache;
  * Class containing URLs of public Maven repositories.
  */
 public class Repositories {
-
 	/**
 	 * Maven Central repository URL.
 	 */
@@ -19,9 +18,5 @@ public class Repositories {
 	 * JitPack repository URL.
 	 */
 	public static final String JITPACK = "https://jitpack.io/";
-
-	private Repositories() {
-		throw new UnsupportedOperationException("Private constructor");
-	}
 }
 

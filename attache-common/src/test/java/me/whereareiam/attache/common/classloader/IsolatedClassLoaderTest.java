@@ -260,14 +260,7 @@ class IsolatedClassLoaderTest {
 		}
 
 		public void closeAllClassLoaders() throws Exception {
-			// Close relocator's classloader first
-			if (relocator != null) {
-				relocator.close();
-			}
-			globalIsolatedClassLoader.close();
-			for (IsolatedClassLoader cl : isolatedLibraries.values()) {
-				cl.close();
-			}
+			close();
 		}
 	}
 
@@ -287,4 +280,3 @@ class IsolatedClassLoaderTest {
 		}
 	}
 }
-

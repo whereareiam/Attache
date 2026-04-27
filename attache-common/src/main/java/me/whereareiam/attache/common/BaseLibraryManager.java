@@ -1,17 +1,20 @@
 package me.whereareiam.attache.common;
 
 import me.whereareiam.attache.LibraryAdapter;
+import me.whereareiam.attache.LibraryBatchLoader;
 import me.whereareiam.attache.LibraryManager;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
+import me.whereareiam.attache.common.loader.ParallelLibraryLoader;
+import me.whereareiam.attache.common.loader.SequentialLibraryLoader;
 import me.whereareiam.attache.common.logging.Logger;
 import me.whereareiam.attache.common.transitive.TransitiveDependencyHelper;
 import me.whereareiam.attache.common.util.LibraryHelper;
-import me.whereareiam.attache.common.util.RelocationHelper;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.type.Level;
+import me.whereareiam.attache.type.LibraryLoadMode;
 import me.whereareiam.attache.type.ResolutionMode;
 import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
@@ -20,11 +23,12 @@ import org.jetbrains.annotations.Nullable;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.net.*;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -60,11 +64,6 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 * Maven repositories used to resolve artifacts
 	 */
 	protected final Set<String> repositories = new LinkedHashSet<>();
-
-	/**
-	 * Lazily initialized relocation helper
-	 */
-	protected RelocationHelper relocator;
 
 	/**
 	 * Lazily initialized helper for transitive dependencies resolution
@@ -106,6 +105,11 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 */
 	protected final Map<Class<?>, LibraryAdapter<?>> libraryAdapters = new LinkedHashMap<>();
 
+	private final ArtifactDownloadCoordinator artifactDownloadCoordinator;
+	private final RelocationCoordinator relocationCoordinator;
+	private final LibraryBatchLoader libraryBatchLoader;
+	private final LibraryLoadMode libraryLoadMode;
+
 	/**
 	 * Creates a new library manager.
 	 *
@@ -121,6 +125,10 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		this.loggingHelper = requireNonNull(loggingHelper, "loggingHelper");
 		this.saveDirectory = requireNonNull(dataDirectory, "dataDirectory").toAbsolutePath().resolve(requireNonNull(directoryName, "directoryName"));
 		this.logger = new Logger(loggingHelper);
+		this.artifactDownloadCoordinator = new ArtifactDownloadCoordinator(this, this.saveDirectory);
+		this.relocationCoordinator = new RelocationCoordinator(this, this.saveDirectory);
+		this.libraryLoadMode = resolveLibraryLoadMode();
+		this.libraryBatchLoader = createLibraryBatchLoader(this.libraryLoadMode);
 		registerLibraryAdapter(LibraryRequest.class, request -> request);
 	}
 
@@ -288,7 +296,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	}
 
 	@NotNull
-	protected LibraryRequest adaptLibrary(@NotNull Object library) {
+	public LibraryRequest adaptLibrary(@NotNull Object library) {
 		requireNonNull(library, "library");
 
 		LibraryAdapter<Object> adapter = resolveAdapter(library.getClass());
@@ -300,7 +308,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	}
 
 	@Nullable
-	protected String findSkipReason(@NotNull LibraryRequest request) {
+	public String findSkipReason(@NotNull LibraryRequest request) {
 		String mavenMetadata = findPresentMavenMetadata(request);
 		if (mavenMetadata != null) {
 			return "maven metadata present: " + mavenMetadata;
@@ -424,7 +432,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		return ClassLoader.getSystemResource(normalized) != null;
 	}
 
-	private void logSkippedLibrary(@NotNull LibraryRequest request, @NotNull String reason) {
+	public void logSkippedLibrary(@NotNull LibraryRequest request, @NotNull String reason) {
 		String message = "Skipping library " + request + " (" + reason + ")";
 		switch (verbosityMode) {
 			case VERBOSE, NORMAL -> logger.info(message);
@@ -511,6 +519,14 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 			connection.setReadTimeout(5000);
 			connection.setRequestProperty("User-Agent", USER_AGENT);
 
+			if (connection instanceof HttpURLConnection httpConnection) {
+				int responseCode = httpConnection.getResponseCode();
+				if (responseCode >= HttpURLConnection.HTTP_BAD_REQUEST) {
+					logHttpDownloadFailure(httpConnection, responseCode);
+					return null;
+				}
+			}
+
 			try (InputStream in = connection.getInputStream()) {
 				int len;
 				byte[] buf = new byte[8192];
@@ -534,90 +550,50 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		} catch (MalformedURLException e) {
 			throw new IllegalArgumentException(e);
 		} catch (FileNotFoundException e) {
-			logger.debug("File not found: " + url);
+			logger.info("File not found: " + url);
 			return null;
 		} catch (SocketTimeoutException e) {
-			logger.debug("Connect timed out: " + url);
+			logger.warn("Download timed out: " + url);
 			return null;
 		} catch (UnknownHostException e) {
-			logger.debug("Unknown host: " + url);
+			logger.warn("Unknown host: " + url);
 			return null;
 		} catch (IOException e) {
-			logger.debug("Unexpected IOException: " + e.getMessage(), e);
+			logger.warn("Download failed: " + url + " (" + e.getMessage() + ")");
 			return null;
 		}
+	}
+
+	private void logHttpDownloadFailure(@NotNull HttpURLConnection connection, int responseCode) throws IOException {
+		String url = connection.getURL().toString();
+		String responseMessage = connection.getResponseMessage();
+		String suffix = responseMessage == null || responseMessage.isBlank()
+				? ""
+				: " " + responseMessage;
+
+		if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+			logger.info("File not found (" + responseCode + suffix + "): " + url);
+			return;
+		}
+
+		logger.warn("Download failed (" + responseCode + suffix + "): " + url);
 	}
 
 	@Override
 	@NotNull
 	public <T> Path downloadLibrary(@NotNull T library) throws IOException, URISyntaxException, NoSuchAlgorithmException {
 		LibraryRequest adaptedLibrary = adaptLibrary(library);
-		// Normalize the library first (replace {}, normalize repos, etc.)
 		LibraryRequest normalizedLibrary = LibraryHelper.normalize(adaptedLibrary);
-		Path file = saveDirectory.resolve(LibraryHelper.getPath(normalizedLibrary));
-		if (Files.exists(file)) {
-			if (!normalizedLibrary.isSnapshot()) {
-				// Relocate the file if needed
-				if (normalizedLibrary.hasRelocations()) {
-					String relocatedPath = LibraryHelper.getRelocatedPath(normalizedLibrary);
-					if (relocatedPath != null)
-						file = relocate(file, relocatedPath, normalizedLibrary.getRelocations());
-				}
+		Path file = artifactDownloadCoordinator.download(normalizedLibrary);
 
-				return file;
-			}
+		if (!normalizedLibrary.hasRelocations())
+			return file;
 
-			// Delete the file since the Files.move call down below will fail if it exists
-			Files.delete(file);
-		}
+		String relocatedPath = LibraryHelper.getRelocatedPath(normalizedLibrary);
+		if (relocatedPath == null)
+			return file;
 
-		Collection<String> urls = resolveLibrary(normalizedLibrary);
-		if (urls.isEmpty())
-			throw new RuntimeException("Library '" + normalizedLibrary + "' couldn't be resolved, add a repository");
-
-		MessageDigest md = null;
-		if (normalizedLibrary.hasChecksum())
-			md = MessageDigest.getInstance("SHA-256");
-
-		Path out = file.resolveSibling(file.getFileName() + ".tmp");
-		out.toFile().deleteOnExit();
-
-		try {
-			Files.createDirectories(file.getParent());
-
-			for (String url : urls) {
-				byte[] bytes = downloadLibraryBytes(url);
-				if (bytes == null) continue;
-
-				if (md != null) {
-					byte[] checksum = md.digest(bytes);
-					if (!Arrays.equals(checksum, normalizedLibrary.getChecksum())) {
-						logger.warn("*** INVALID CHECKSUM ***");
-						logger.warn(" Library :  " + normalizedLibrary);
-						logger.warn(" URL :  " + url);
-						logger.warn(" Expected :  " + Base64.getEncoder().encodeToString(normalizedLibrary.getChecksum()));
-						logger.warn(" Actual :  " + Base64.getEncoder().encodeToString(checksum));
-						continue;
-					}
-				}
-
-				Files.write(out, bytes);
-				Files.move(out, file);
-
-				// Relocate the file if needed
-				if (normalizedLibrary.hasRelocations()) {
-					String relocatedPath = LibraryHelper.getRelocatedPath(normalizedLibrary);
-					if (relocatedPath != null)
-						file = relocate(file, relocatedPath, normalizedLibrary.getRelocations());
-				}
-
-				return file;
-			}
-		} finally {
-			Files.deleteIfExists(out);
-		}
-
-		throw new RuntimeException("Failed to download library '" + normalizedLibrary + "'");
+		return relocate(file, relocatedPath, normalizedLibrary.getRelocations());
 	}
 
 	/**
@@ -631,40 +607,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 */
 	@NotNull
 	protected Path relocate(@NotNull Path in, @NotNull String out, @NotNull Collection<RelocationRule> relocations) {
-		requireNonNull(in, "in");
-		requireNonNull(out, "out");
-		requireNonNull(relocations, "relocations");
-
-		Path file = saveDirectory.resolve(out);
-		if (Files.exists(file)) {
-			return file;
-		}
-
-		Path tmpOut = file.resolveSibling(file.getFileName() + ".tmp");
-		tmpOut.toFile().deleteOnExit();
-
-		synchronized (this) {
-			if (relocator == null) {
-				relocator = new RelocationHelper(this);
-			}
-		}
-
-		try {
-			relocator.relocate(in, tmpOut, relocations);
-			Files.move(tmpOut, file);
-
-			if (verbosityMode == VerbosityMode.VERBOSE)
-				logger.info("Relocations applied to " + in.getFileName());
-
-			return file;
-		} catch (IOException e) {
-			throw new UncheckedIOException(e);
-		} finally {
-			try {
-				Files.deleteIfExists(tmpOut);
-			} catch (IOException ignored) {
-			}
-		}
+		return relocationCoordinator.relocate(in, out, relocations);
 	}
 
 	/**
@@ -724,44 +667,113 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 		try {
 			Path file = downloadLibrary(request);
-
-			// Resolve transitive dependencies before loading the main library
-			if (request.isResolveTransitiveDependencies())
-				resolveTransitiveLibraries(request);
-
-			loadLibrary(request, file);
-
-			// Track successful load
-			loadedLibraries.add(request);
-
-			// Log success based on verbosity
-			if (verbosityMode == VerbosityMode.VERBOSE)
-				logger.info("Successfully loaded " + request);
+			loadDownloadedLibrary(request, file);
 		} catch (IOException | URISyntaxException | NoSuchAlgorithmException e) {
-			// Always log errors, track failure
-			failedLibraries.put(request, e);
+			recordLoadFailure(request, e);
 			throw new RuntimeException("Failed to load library " + request, e);
+		} catch (RuntimeException e) {
+			recordLoadFailure(request, e);
+			throw e;
 		}
 	}
 
-	@Override
+    @Override
 	public final <T> void loadLibraries(@NotNull T... libraries) {
-		for (T library : libraries)
-			loadLibrary(library);
-
-		// Auto-print summary for SUMMARY and QUIET modes
-		if (verbosityMode == VerbosityMode.SUMMARY || verbosityMode == VerbosityMode.QUIET)
-			printLoadedLibrariesSummary();
+		loadLibraries(Arrays.asList(libraries));
 	}
 
 	@Override
 	public <T> void loadLibraries(@NotNull Collection<? extends T> libraries) {
-		for (T library : libraries)
-			loadLibrary(library);
+		libraryBatchLoader.loadLibraries(libraries);
+	}
 
-		// Auto-print summary for SUMMARY and QUIET modes
-		if (verbosityMode == VerbosityMode.SUMMARY || verbosityMode == VerbosityMode.QUIET)
-			printLoadedLibrariesSummary();
+	@NotNull
+	public LibraryLoadMode getLibraryLoadMode() {
+		return libraryLoadMode;
+	}
+
+	public void logLibraryLoadStart(@NotNull LibraryRequest request) {
+		switch (verbosityMode) {
+			case VERBOSE, NORMAL -> logger.info("Loading library " + request);
+			case SUMMARY -> logger.debug("Loading library " + request);
+			case QUIET -> { /* No logging */ }
+		}
+	}
+
+	public void loadDownloadedLibrary(@NotNull LibraryRequest request, @NotNull Path file) {
+		if (request.isResolveTransitiveDependencies())
+			resolveTransitiveLibraries(request);
+
+		loadLibrary(request, file);
+		loadedLibraries.add(request);
+
+		if (verbosityMode == VerbosityMode.VERBOSE)
+			logger.info("Successfully loaded " + request);
+	}
+
+	public void recordLoadFailure(@NotNull LibraryRequest request, @NotNull Exception exception) {
+		failedLibraries.put(request, exception);
+	}
+
+	@NotNull
+	public <T> T awaitFuture(
+			@NotNull CompletableFuture<T> future,
+			@NotNull String interruptedMessage
+	) throws IOException, URISyntaxException, NoSuchAlgorithmException {
+		try {
+			return future.get();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException(interruptedMessage, e);
+		} catch (ExecutionException e) {
+			throw rethrowAsyncCause(e.getCause());
+		}
+	}
+
+	@NotNull
+	private LibraryBatchLoader createLibraryBatchLoader(@NotNull LibraryLoadMode loadMode) {
+		return switch (loadMode) {
+			case PARALLEL -> new ParallelLibraryLoader(this);
+			case SEQUENTIAL -> new SequentialLibraryLoader(this);
+		};
+	}
+
+	@NotNull
+	private LibraryLoadMode resolveLibraryLoadMode() {
+		String configuredValue = System.getProperty(LibraryLoadMode.SYSTEM_PROPERTY);
+		if (configuredValue == null || configuredValue.isBlank())
+			configuredValue = System.getenv(LibraryLoadMode.ENV_VARIABLE);
+
+		try {
+			return LibraryLoadMode.resolve(configuredValue);
+		} catch (IllegalArgumentException e) {
+			logger.warn("Invalid load mode '" + configuredValue + "', defaulting to PARALLEL");
+			return LibraryLoadMode.PARALLEL;
+		}
+	}
+
+	@NotNull
+	private RuntimeException rethrowAsyncCause(Throwable cause) throws IOException, URISyntaxException, NoSuchAlgorithmException {
+		Throwable unwrapped = unwrapAsyncCause(cause);
+		if (unwrapped instanceof IOException ioException)
+			throw ioException;
+		if (unwrapped instanceof URISyntaxException uriSyntaxException)
+			throw uriSyntaxException;
+		if (unwrapped instanceof NoSuchAlgorithmException noSuchAlgorithmException)
+			throw noSuchAlgorithmException;
+		if (unwrapped instanceof RuntimeException runtimeException)
+			throw runtimeException;
+
+		throw new RuntimeException("Unexpected asynchronous failure", unwrapped);
+	}
+
+	@NotNull
+	private Throwable unwrapAsyncCause(Throwable cause) {
+		Throwable current = cause;
+		while (current instanceof CompletionException completionException && completionException.getCause() != null)
+			current = completionException.getCause();
+
+		return current;
 	}
 
 	/**
@@ -805,12 +817,13 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	 */
 	@Override
 	public void close() {
-		// Close relocator if initialized
-		if (relocator != null) {
+		relocationCoordinator.close();
+
+		if (transitiveDependencyHelper != null) {
 			try {
-				relocator.close();
+				transitiveDependencyHelper.close();
 			} catch (Exception e) {
-				logger.error("Failed to close relocator", e);
+				logger.error("Failed to close transitive dependency helper", e);
 			}
 		}
 
@@ -833,4 +846,3 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		isolatedLibraries.clear();
 	}
 }
-

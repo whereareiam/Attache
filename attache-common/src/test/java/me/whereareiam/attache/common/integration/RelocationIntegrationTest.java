@@ -2,7 +2,6 @@ package me.whereareiam.attache.common.integration;
 
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
-import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.type.Level;
@@ -228,14 +227,8 @@ class RelocationIntegrationTest {
 			// No-op for testing
 		}
 
-		public void closeAllClassLoaders() throws Exception {
-			// Close relocator's classloader first
-			if (relocator != null)
-				relocator.close();
-
-			globalIsolatedClassLoader.close();
-			for (IsolatedClassLoader cl : isolatedLibraries.values())
-				cl.close();
+		public void closeAllClassLoaders() {
+			close();
 		}
 	}
 
@@ -255,4 +248,3 @@ class RelocationIntegrationTest {
 		}
 	}
 }
-

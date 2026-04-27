@@ -245,18 +245,8 @@ class TransitiveDependencyTest {
 			return addedPaths.contains(path);
 		}
 
-		public void closeAllClassLoaders() throws Exception {
-			// Close relocator's classloader first
-			if (relocator != null)
-				relocator.close();
-
-			// Close transitive helper if it exists
-			if (transitiveDependencyHelper != null)
-				transitiveDependencyHelper.close();
-
-			globalIsolatedClassLoader.close();
-			for (me.whereareiam.attache.common.classloader.IsolatedClassLoader cl : isolatedLibraries.values())
-				cl.close();
+		public void closeAllClassLoaders() {
+			close();
 		}
 	}
 
@@ -276,4 +266,3 @@ class TransitiveDependencyTest {
 		}
 	}
 }
-
