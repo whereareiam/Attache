@@ -509,13 +509,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		};
 	}
 
-	/**
-	 * Downloads a library jar and returns the contents as a byte array.
-	 *
-	 * @param url the URL to the library jar
-	 * @return downloaded jar as byte array or null if nothing was downloaded
-	 */
-	protected byte[] downloadLibraryBytes(@NotNull String url) {
+	@NotNull
+	DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
 		try {
 			URLConnection connection = java.net.URI.create(requireNonNull(url, "url")).toURL().openConnection();
 
@@ -526,8 +521,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 			if (connection instanceof HttpURLConnection httpConnection) {
 				int responseCode = httpConnection.getResponseCode();
 				if (responseCode >= HttpURLConnection.HTTP_BAD_REQUEST) {
-					logHttpDownloadFailure(httpConnection, responseCode);
-					return null;
+					return createHttpDownloadFailure(httpConnection, responseCode);
 				}
 			}
 
@@ -541,46 +535,48 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 						out.write(buf, 0, len);
 					}
 				} catch (SocketTimeoutException e) {
-					logger.warn("Download timed out: " + connection.getURL());
-					return null;
+					return DownloadAttempt.failure(Level.WARN, "Download timed out: " + connection.getURL(), false);
 				}
 
-				// Log based on verbosity mode
 				if (verbosityMode == VerbosityMode.VERBOSE)
 					logger.info("Downloaded library " + connection.getURL());
 
-				return out.toByteArray();
+				return DownloadAttempt.success(out.toByteArray());
 			}
 		} catch (MalformedURLException e) {
 			throw new IllegalArgumentException(e);
 		} catch (FileNotFoundException e) {
-			logger.info("File not found: " + url);
-			return null;
+			return DownloadAttempt.failure(Level.INFO, "File not found: " + url, true);
 		} catch (SocketTimeoutException e) {
-			logger.warn("Download timed out: " + url);
-			return null;
+			return DownloadAttempt.failure(Level.WARN, "Download timed out: " + url, false);
 		} catch (UnknownHostException e) {
-			logger.warn("Unknown host: " + url);
-			return null;
+			return DownloadAttempt.failure(Level.WARN, "Unknown host: " + url, false);
 		} catch (IOException e) {
-			logger.warn("Download failed: " + url + " (" + e.getMessage() + ")");
-			return null;
+			return DownloadAttempt.failure(Level.WARN, "Download failed: " + url + " (" + e.getMessage() + ")", false);
 		}
 	}
 
-	private void logHttpDownloadFailure(@NotNull HttpURLConnection connection, int responseCode) throws IOException {
+	/**
+	 * Downloads a library jar and returns the contents as a byte array.
+	 *
+	 * @param url the URL to the library jar
+	 * @return downloaded jar as byte array or null if nothing was downloaded
+	 */
+	protected byte[] downloadLibraryBytes(@NotNull String url) {
+		return downloadLibraryAttempt(url).getBytes();
+	}
+
+	@NotNull
+	private DownloadAttempt createHttpDownloadFailure(@NotNull HttpURLConnection connection, int responseCode) throws IOException {
 		String url = connection.getURL().toString();
 		String responseMessage = connection.getResponseMessage();
 		String suffix = responseMessage == null || responseMessage.isBlank()
 				? ""
 				: " " + responseMessage;
 
-		if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
-			logger.info("File not found (" + responseCode + suffix + "): " + url);
-			return;
-		}
-
-		logger.warn("Download failed (" + responseCode + suffix + "): " + url);
+		return responseCode == HttpURLConnection.HTTP_NOT_FOUND
+				? DownloadAttempt.failure(Level.INFO, "File not found (" + responseCode + suffix + "): " + url, true)
+				: DownloadAttempt.failure(Level.WARN, "Download failed (" + responseCode + suffix + "): " + url, false);
 	}
 
 	@Override
@@ -795,7 +791,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		return getClass().getClassLoader();
 	}
 
-	public final synchronized void loadClasspathDescriptors() {
+	@Override
+	public final synchronized void loadDescriptors() {
 		if (classpathDescriptorsLoaded) {
 			return;
 		}
@@ -916,6 +913,52 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		private DescriptorLibraryOrigin(@NotNull AttacheDescriptorLibrary library, @NotNull String location) {
 			this.library = library;
 			this.location = location;
+		}
+	}
+
+	static final class DownloadAttempt {
+		private final byte[] bytes;
+		private final Level level;
+		private final String message;
+		private final boolean notFound;
+
+		private DownloadAttempt(byte[] bytes, Level level, String message, boolean notFound) {
+			this.bytes = bytes;
+			this.level = level;
+			this.message = message;
+			this.notFound = notFound;
+		}
+
+		@NotNull
+		private static DownloadAttempt success(byte @NotNull [] bytes) {
+			return new DownloadAttempt(requireNonNull(bytes, "bytes"), null, null, false);
+		}
+
+		@NotNull
+		private static DownloadAttempt failure(@NotNull Level level, @NotNull String message, boolean notFound) {
+			return new DownloadAttempt(null, requireNonNull(level, "level"), requireNonNull(message, "message"), notFound);
+		}
+
+		byte @Nullable [] getBytes() {
+			return bytes;
+		}
+
+		boolean isSuccess() {
+			return bytes != null;
+		}
+
+		@Nullable
+		Level getLevel() {
+			return level;
+		}
+
+		@Nullable
+		String getMessage() {
+			return message;
+		}
+
+		boolean isNotFound() {
+			return notFound;
 		}
 	}
 }

@@ -4,6 +4,7 @@ import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.classloader.URLClassLoaderHelper;
 import me.whereareiam.attache.common.logging.adapter.JDKLoggingHelper;
+import me.whereareiam.attache.type.VerbosityMode;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -54,11 +55,17 @@ public class PaperLibraryManager extends BaseLibraryManager {
 	 * @param loggingHelper the log adapter to use
 	 */
 	public PaperLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper) {
-		this(plugin, directoryName, loggingHelper, true);
+		this(plugin, directoryName, loggingHelper, VerbosityMode.VERBOSE);
 	}
 
-	public PaperLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper, boolean autoLoadDescriptors) {
+	public PaperLibraryManager(
+			@NotNull Plugin plugin,
+			@NotNull String directoryName,
+			@NotNull LoggingHelper loggingHelper,
+			@NotNull VerbosityMode verbosityMode
+	) {
 		super(loggingHelper, plugin.getDataFolder().toPath(), directoryName);
+		setVerbosityMode(requireNonNull(verbosityMode, "verbosityMode"));
 
 		ClassLoader cl = plugin.getClass().getClassLoader();
 		Class<?> paperClClazz;
@@ -94,9 +101,6 @@ public class PaperLibraryManager extends BaseLibraryManager {
 
 		this.descriptorClassLoader = cl;
 		classLoaderHelper = new URLClassLoaderHelper(libraryLoader);
-		if (autoLoadDescriptors) {
-			loadClasspathDescriptors();
-		}
 	}
 
 	/**

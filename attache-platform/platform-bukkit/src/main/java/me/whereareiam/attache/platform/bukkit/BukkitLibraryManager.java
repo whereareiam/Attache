@@ -4,6 +4,7 @@ import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.classloader.URLClassLoaderHelper;
 import me.whereareiam.attache.common.logging.adapter.JDKLoggingHelper;
+import me.whereareiam.attache.type.VerbosityMode;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
@@ -53,11 +54,17 @@ public class BukkitLibraryManager extends BaseLibraryManager {
 	 * @param loggingHelper the log adapter to use
 	 */
 	public BukkitLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper) {
-		this(plugin, directoryName, loggingHelper, true);
+		this(plugin, directoryName, loggingHelper, VerbosityMode.VERBOSE);
 	}
 
-	public BukkitLibraryManager(@NotNull Plugin plugin, @NotNull String directoryName, @NotNull LoggingHelper loggingHelper, boolean autoLoadDescriptors) {
+	public BukkitLibraryManager(
+			@NotNull Plugin plugin,
+			@NotNull String directoryName,
+			@NotNull LoggingHelper loggingHelper,
+			@NotNull VerbosityMode verbosityMode
+	) {
 		super(loggingHelper, plugin.getDataFolder().toPath(), directoryName);
+		setVerbosityMode(requireNonNull(verbosityMode, "verbosityMode"));
 
 		ClassLoader classLoader = plugin.getClass().getClassLoader();
 		if (!(classLoader instanceof URLClassLoader))
@@ -65,9 +72,6 @@ public class BukkitLibraryManager extends BaseLibraryManager {
 
 		this.descriptorClassLoader = classLoader;
 		this.classLoaderHelper = new URLClassLoaderHelper((URLClassLoader) classLoader);
-		if (autoLoadDescriptors) {
-			loadClasspathDescriptors();
-		}
 	}
 
 	/**

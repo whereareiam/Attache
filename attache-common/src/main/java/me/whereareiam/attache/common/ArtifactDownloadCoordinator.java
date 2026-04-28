@@ -2,6 +2,7 @@ package me.whereareiam.attache.common;
 
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -11,9 +12,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -69,10 +72,16 @@ final class ArtifactDownloadCoordinator {
 
 		Files.createDirectories(file.getParent());
 		Path out = Files.createTempFile(file.getParent(), file.getFileName().toString(), ".tmp");
+		List<BaseLibraryManager.DownloadAttempt> failures = new ArrayList<>();
 		try {
 			for (String url : urls) {
-				byte[] bytes = libraryManager.downloadLibraryBytes(url);
-				if (bytes == null) continue;
+				BaseLibraryManager.DownloadAttempt attempt = libraryManager.downloadLibraryAttempt(url);
+				if (!attempt.isSuccess()) {
+					failures.add(attempt);
+					continue;
+				}
+
+				byte[] bytes = attempt.getBytes();
 
 				if (md != null) {
 					byte[] checksum = md.digest(bytes);
@@ -94,11 +103,29 @@ final class ArtifactDownloadCoordinator {
 			Files.deleteIfExists(out);
 		}
 
+		logFailedResolution(normalizedLibrary, failures);
 		throw new RuntimeException("Failed to download library '" + normalizedLibrary + "'");
 	}
 
 	@NotNull
 	private Path awaitDownload(@NotNull CompletableFuture<Path> future) throws IOException, URISyntaxException, NoSuchAlgorithmException {
 		return libraryManager.awaitFuture(future, "Interrupted while waiting for library download");
+	}
+
+	private void logFailedResolution(
+			@NotNull LibraryRequest normalizedLibrary,
+			@NotNull List<BaseLibraryManager.DownloadAttempt> failures
+	) {
+		if (libraryManager.getVerbosityMode() == VerbosityMode.QUIET || failures.isEmpty()) {
+			return;
+		}
+
+		boolean allNotFound = failures.stream().allMatch(BaseLibraryManager.DownloadAttempt::isNotFound);
+		if (allNotFound) {
+			libraryManager.getLogger().info("Library not found in configured repositories: " + normalizedLibrary);
+			return;
+		}
+
+		libraryManager.getLogger().warn("Failed to resolve library from configured repositories: " + normalizedLibrary);
 	}
 }

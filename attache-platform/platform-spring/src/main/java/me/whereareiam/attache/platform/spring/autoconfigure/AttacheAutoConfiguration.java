@@ -54,12 +54,11 @@ public class AttacheAutoConfiguration {
     @ConditionalOnProperty(prefix = "attache", name = "auto-load", havingValue = "true", matchIfMissing = true)
     public ApplicationRunner attacheLibraryLoader(StandaloneLibraryManager libraryManager, AttacheProperties properties) {
         return args -> {
-            if (properties.getLibraries().isEmpty()) {
-                return;
-            }
-
             try {
-                libraryManager.loadLibraries(properties.getLibraries());
+                libraryManager.loadDescriptors();
+                if (!properties.getLibraries().isEmpty()) {
+                    libraryManager.loadLibraries(properties.getLibraries());
+                }
             } catch (RuntimeException ex) {
                 libraryManager.getLogger().error("Failed to load Attache libraries", ex);
                 throw ex;

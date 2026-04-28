@@ -4,6 +4,7 @@ import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.classloader.SystemClassLoaderHelper;
 import me.whereareiam.attache.common.classloader.URLClassLoaderHelper;
+import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Method;
@@ -65,7 +66,7 @@ public class StandaloneLibraryManager extends BaseLibraryManager {
 			@NotNull String directoryName,
 			@NotNull ClassLoader classLoader
 	) {
-		this(loggingHelper, dataDirectory, directoryName, classLoader, true);
+		this(loggingHelper, dataDirectory, directoryName, classLoader, VerbosityMode.VERBOSE);
 	}
 
 	public StandaloneLibraryManager(
@@ -73,10 +74,11 @@ public class StandaloneLibraryManager extends BaseLibraryManager {
 			@NotNull Path dataDirectory,
 			@NotNull String directoryName,
 			@NotNull ClassLoader classLoader,
-			boolean autoLoadDescriptors
+			@NotNull VerbosityMode verbosityMode
 	) {
 		super(loggingHelper, dataDirectory, directoryName);
 		this.targetLoader = Objects.requireNonNull(classLoader, "classLoader");
+		setVerbosityMode(Objects.requireNonNull(verbosityMode, "verbosityMode"));
 		this.addPathMethod = findPublicMethod(targetLoader, "addPath", Path.class);
 		this.addUrlMethod = findPublicMethod(targetLoader, "addURL", URL.class);
 
@@ -91,10 +93,6 @@ public class StandaloneLibraryManager extends BaseLibraryManager {
 			this.systemClassLoaderHelper = null;
 		} else {
 			throw new RuntimeException("Unsupported class loader: " + targetLoader.getClass().getName());
-		}
-
-		if (autoLoadDescriptors) {
-			loadClasspathDescriptors();
 		}
 	}
 

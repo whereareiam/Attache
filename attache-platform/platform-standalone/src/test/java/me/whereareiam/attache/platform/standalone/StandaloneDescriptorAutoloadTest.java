@@ -21,7 +21,7 @@ class StandaloneDescriptorAutoloadTest {
 	Path tempDir;
 
 	@Test
-	void constructorAutoloadsClasspathDescriptors() throws Exception {
+	void loadDescriptorsLoadsPackagedDescriptors() throws Exception {
 		Path sourceJar = createSourceJar();
 		writeDescriptor(sourceJar);
 
@@ -30,9 +30,10 @@ class StandaloneDescriptorAutoloadTest {
 				     new NoopLoggingHelper(),
 				     tempDir.resolve("runtime"),
 				     "lib",
-				     classLoader,
-				     true
+				     classLoader
 		     )) {
+			manager.loadDescriptors();
+
 			Path loadedJar = manager.getSaveDirectory()
 					.resolve("example/test/alpha/1.0.0/alpha-1.0.0.jar");
 

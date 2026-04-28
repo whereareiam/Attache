@@ -192,10 +192,14 @@ public interface LibraryManager {
 	VerbosityMode getVerbosityMode();
 
 	/**
+	 * Loads packaged Attache descriptors and resolves their declared libraries.
+	 */
+	void loadDescriptors();
+
+	/**
 	 * Prints a summary of all loaded libraries.
 	 * <p>
 	 * Useful when using SUMMARY or QUIET verbosity modes.
 	 */
 	void printLoadedLibrariesSummary();
 }
-

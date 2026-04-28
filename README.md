@@ -126,7 +126,7 @@ project(":identica-provider:provider-premium:premium")
 -> META-INF/attache/identica-provider/provider-premium/premium/attache.json
 ```
 
-At runtime, Attache managers automatically scan `META-INF/attache/**/attache.json`, merge all discovered fragments, and load the declared libraries during construction.
+At runtime, Attache managers can scan `META-INF/attache/**/attache.json`, merge all discovered fragments, and load the declared libraries when `loadDescriptors()` is called.
 
 ## Usage
 
@@ -198,13 +198,14 @@ public class MyPlugin extends JavaPlugin {
 
 ### Zero-Config Runtime Loading
 
-When your jar contains Gradle-generated Attache descriptors, creating a manager is enough:
+When your jar contains Gradle-generated Attache descriptors, trigger descriptor loading explicitly after creating the manager:
 
 ```java
 VelocityLibraryManager libraryManager = new VelocityLibraryManager(proxyServer, pluginContainer, logger, dataPath, ".libraries");
+libraryManager.loadDescriptors();
 ```
 
-By default, the manager will:
+Calling `loadDescriptors()` will:
 
 - discover all `META-INF/attache/**/attache.json` fragments on the classpath
 - merge repositories and library definitions

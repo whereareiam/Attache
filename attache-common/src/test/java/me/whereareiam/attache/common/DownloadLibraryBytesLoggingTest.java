@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
@@ -15,7 +16,10 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class DownloadLibraryBytesLoggingTest {
 	@TempDir
@@ -30,7 +34,7 @@ class DownloadLibraryBytesLoggingTest {
 	}
 
 	@Test
-	void logs404AtInfo() throws Exception {
+	void doesNotLog404DuringProbe() throws Exception {
 		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
 		ExposedDownloadLibraryManager libraryManager = new ExposedDownloadLibraryManager(tempDir, loggingHelper);
 
@@ -44,11 +48,11 @@ class DownloadLibraryBytesLoggingTest {
 		byte[] bytes = libraryManager.invokeDownloadLibraryBytes(url("/missing"));
 
 		assertNull(bytes);
-		assertTrue(loggingHelper.contains(Level.INFO, "File not found (404"));
+		assertFalse(loggingHelper.contains(Level.INFO, "File not found"));
 	}
 
 	@Test
-	void logs403AtWarn() throws Exception {
+	void doesNotLog403DuringProbe() throws Exception {
 		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
 		ExposedDownloadLibraryManager libraryManager = new ExposedDownloadLibraryManager(tempDir, loggingHelper);
 
@@ -62,11 +66,11 @@ class DownloadLibraryBytesLoggingTest {
 		byte[] bytes = libraryManager.invokeDownloadLibraryBytes(url("/forbidden"));
 
 		assertNull(bytes);
-		assertTrue(loggingHelper.contains(Level.WARN, "Download failed (403"));
+		assertFalse(loggingHelper.contains(Level.WARN, "Download failed (403"));
 	}
 
 	@Test
-	void logsTimeoutAtWarn() throws Exception {
+	void doesNotLogTimeoutDuringProbe() throws Exception {
 		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
 		ExposedDownloadLibraryManager libraryManager = new ExposedDownloadLibraryManager(tempDir, loggingHelper);
 
@@ -90,12 +94,73 @@ class DownloadLibraryBytesLoggingTest {
 		byte[] bytes = libraryManager.invokeDownloadLibraryBytes(url("/timeout"));
 
 		assertNull(bytes);
-		assertTrue(loggingHelper.contains(Level.WARN, "Download timed out:"));
+		assertFalse(loggingHelper.contains(Level.WARN, "Download timed out:"));
+	}
+
+	@Test
+	void skips404NoiseWhenFallbackRepositorySucceeds() throws Exception {
+		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
+		ExposedDownloadLibraryManager libraryManager = new ExposedDownloadLibraryManager(tempDir, loggingHelper);
+		String artifactPath = "/repo/com/example/test-lib/1.0.0/test-lib-1.0.0.jar";
+		byte[] response = "jar".getBytes();
+
+		server = HttpServer.create(new InetSocketAddress(0), 0);
+		server.createContext("/missing" + artifactPath, exchange -> {
+			exchange.sendResponseHeaders(404, -1);
+			exchange.close();
+		});
+		server.createContext("/present" + artifactPath, exchange -> {
+			exchange.sendResponseHeaders(200, response.length);
+			try (OutputStream out = exchange.getResponseBody()) {
+				out.write(response);
+			} finally {
+				exchange.close();
+			}
+		});
+		server.start();
+
+		libraryManager.addRepository(url("/missing/repo/"));
+		libraryManager.addRepository(url("/present/repo/"));
+
+		Path file = libraryManager.downloadLibrary(testLibrary());
+
+		assertNotNull(file);
+		assertTrue(Files.exists(file));
+		assertFalse(loggingHelper.contains(Level.INFO, "File not found"));
+	}
+
+	@Test
+	void logsSingleNotFoundMessageWhenAllRepositoriesMiss() throws Exception {
+		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
+		ExposedDownloadLibraryManager libraryManager = new ExposedDownloadLibraryManager(tempDir, loggingHelper);
+		String artifactPath = "/repo/com/example/test-lib/1.0.0/test-lib-1.0.0.jar";
+
+		server = HttpServer.create(new InetSocketAddress(0), 0);
+		server.createContext("/missing" + artifactPath, exchange -> {
+			exchange.sendResponseHeaders(404, -1);
+			exchange.close();
+		});
+		server.start();
+
+		libraryManager.addRepository(url("/missing/repo/"));
+
+		assertThrows(RuntimeException.class, () -> libraryManager.downloadLibrary(testLibrary()));
+		assertTrue(loggingHelper.contains(Level.INFO, "Library not found in configured repositories"));
+		assertFalse(loggingHelper.contains(Level.INFO, "File not found (404"));
 	}
 
 	@NotNull
 	private String url(@NotNull String path) {
 		return "http://127.0.0.1:" + server.getAddress().getPort() + path;
+	}
+
+	@NotNull
+	private me.whereareiam.attache.model.LibraryRequest testLibrary() {
+		return me.whereareiam.attache.model.LibraryRequest.builder()
+				.groupId("com.example")
+				.artifactId("test-lib")
+				.version("1.0.0")
+				.build();
 	}
 
 	private static final class ExposedDownloadLibraryManager extends BaseLibraryManager {

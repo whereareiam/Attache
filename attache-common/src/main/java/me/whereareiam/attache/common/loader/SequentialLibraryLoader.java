@@ -46,7 +46,7 @@ public final class SequentialLibraryLoader implements LibraryBatchLoader {
 		}
 
 		VerbosityMode verbosityMode = libraryManager.getVerbosityMode();
-		if (verbosityMode == VerbosityMode.SUMMARY || verbosityMode == VerbosityMode.QUIET)
+		if (verbosityMode == VerbosityMode.SUMMARY)
 			libraryManager.printLoadedLibrariesSummary();
 	}
 }

@@ -5,6 +5,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.logging.adapter.JDKLoggingHelper;
+import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
@@ -56,7 +57,25 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 	 * @param directoryName   download directory name
 	 */
 	public VelocityLibraryManager(@NotNull ProxyServer proxyServer, @NotNull PluginContainer pluginContainer, @NotNull Logger logger, @NotNull Path dataDirectory, @NotNull String directoryName) {
-		this(proxyServer, pluginContainer, new JDKLoggingHelper(adaptSlf4jLogger(requireNonNull(logger, "logger"))), dataDirectory, directoryName);
+		this(proxyServer, pluginContainer, logger, dataDirectory, directoryName, VerbosityMode.VERBOSE);
+	}
+
+	public VelocityLibraryManager(
+			@NotNull ProxyServer proxyServer,
+			@NotNull PluginContainer pluginContainer,
+			@NotNull Logger logger,
+			@NotNull Path dataDirectory,
+			@NotNull String directoryName,
+			@NotNull VerbosityMode verbosityMode
+	) {
+		this(
+				proxyServer,
+				pluginContainer,
+				new JDKLoggingHelper(adaptSlf4jLogger(requireNonNull(logger, "logger"))),
+				dataDirectory,
+				directoryName,
+				verbosityMode
+		);
 	}
 
 	/**
@@ -69,7 +88,7 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 	 * @param directoryName   download directory name
 	 */
 	public VelocityLibraryManager(@NotNull ProxyServer proxyServer, @NotNull PluginContainer pluginContainer, @NotNull LoggingHelper loggingHelper, @NotNull Path dataDirectory, @NotNull String directoryName) {
-		this(proxyServer, pluginContainer, loggingHelper, dataDirectory, directoryName, true);
+		this(proxyServer, pluginContainer, loggingHelper, dataDirectory, directoryName, VerbosityMode.VERBOSE);
 	}
 
 	public VelocityLibraryManager(
@@ -78,7 +97,7 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 			@NotNull LoggingHelper loggingHelper,
 			@NotNull Path dataDirectory,
 			@NotNull String directoryName,
-			boolean autoLoadDescriptors
+			@NotNull VerbosityMode verbosityMode
 	) {
 		super(loggingHelper, dataDirectory, directoryName);
 		this.proxyServer = requireNonNull(proxyServer, "proxyServer");
@@ -86,9 +105,7 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 		this.descriptorClassLoader = this.pluginContainer.getInstance()
 				.map(instance -> instance.getClass().getClassLoader())
 				.orElseGet(() -> getClass().getClassLoader());
-		if (autoLoadDescriptors) {
-			loadClasspathDescriptors();
-		}
+		setVerbosityMode(requireNonNull(verbosityMode, "verbosityMode"));
 	}
 
 	/**

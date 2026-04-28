@@ -77,7 +77,7 @@ public final class ParallelLibraryLoader implements LibraryBatchLoader {
 			executor.shutdownNow();
 
 			VerbosityMode verbosityMode = libraryManager.getVerbosityMode();
-			if (verbosityMode == VerbosityMode.SUMMARY || verbosityMode == VerbosityMode.QUIET)
+			if (verbosityMode == VerbosityMode.SUMMARY)
 				libraryManager.printLoadedLibrariesSummary();
 		}
 	}

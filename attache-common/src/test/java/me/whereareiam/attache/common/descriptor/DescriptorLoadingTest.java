@@ -44,7 +44,7 @@ class DescriptorLoadingTest {
 
 		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
 		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
-			manager.loadClasspathDescriptors();
+			manager.loadDescriptors();
 
 			assertEquals(List.of("alpha-1.0.0.jar", "beta-1.0.0.jar"), manager.getLoadedArtifacts());
 			assertTrue(manager.getRepositories().contains("https://repo1.maven.org/maven2/"));
@@ -60,7 +60,7 @@ class DescriptorLoadingTest {
 
 		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
 		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
-			manager.loadClasspathDescriptors();
+			manager.loadDescriptors();
 
 			assertEquals(Set.of("alpha-1.0.0.jar", "beta-1.0.0.jar", "gamma-1.0.0.jar"), Set.copyOf(manager.getLoadedArtifacts()));
 		}
@@ -77,7 +77,7 @@ class DescriptorLoadingTest {
 
 		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
 		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
-			IllegalStateException exception = assertThrows(IllegalStateException.class, manager::loadClasspathDescriptors);
+			IllegalStateException exception = assertThrows(IllegalStateException.class, manager::loadDescriptors);
 			assertTrue(exception.getMessage().contains("first/attache.json"));
 			assertTrue(exception.getMessage().contains("second/attache.json"));
 		}
