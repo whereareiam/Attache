@@ -9,8 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class AttachePluginFunctionalTest {
 	@TempDir
@@ -36,7 +35,7 @@ class AttachePluginFunctionalTest {
 				""");
 
 		writeFile("build.gradle.kts", """
-					import me.whereareiam.attache.plugin.gradle.extension.AttacheMetadataExtension
+					import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension
 					import org.gradle.api.publish.maven.MavenPublication
 					
 					plugins {
@@ -58,7 +57,7 @@ class AttachePluginFunctionalTest {
 					    }
 					}
 					
-					extensions.configure<AttacheMetadataExtension>("attacheMetadata") {
+					extensions.configure<AttacheExtension>("attache") {
 					    repository("https://repo.example.com/releases")
 					
 					    library(libs.gson) {
@@ -101,7 +100,7 @@ class AttachePluginFunctionalTest {
 		assertTrue(json.contains("\"relocatedPattern\": \"example.libs.gson\""));
 		assertTrue(Files.exists(pom));
 		assertTrue(pomXml.contains("<artifactId>gson</artifactId>"));
-		assertTrue(!pomXml.contains("<artifactId>commons-lang3</artifactId>"));
+        assertFalse(pomXml.contains("<artifactId>commons-lang3</artifactId>"));
 	}
 
 	@Test
@@ -131,9 +130,73 @@ class AttachePluginFunctionalTest {
 		assertTrue(result.getOutput().contains("Attache configuration does not support project dependencies"));
 	}
 
+	@Test
+	void appliesProjectLevelTransitiveDefaultAndAllowsLibraryOverride() throws Exception {
+		writeFile("settings.gradle.kts", """
+				rootProject.name = "fixture"
+				
+				dependencyResolutionManagement {
+				    repositories {
+				        mavenCentral()
+				    }
+				
+				    versionCatalogs {
+				        create("libs") {
+				            library("gson", "com.google.code.gson:gson:2.13.2")
+				            library("commonsLang", "org.apache.commons:commons-lang3:3.17.0")
+				        }
+				    }
+				}
+				""");
+
+		writeFile("build.gradle.kts", """
+					import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension
+					
+					plugins {
+					    `java-library`
+					    id("me.whereareiam.attache")
+					}
+					
+					dependencies {
+					    attache(libs.gson)
+					    attache(libs.commonsLang)
+					}
+					
+					extensions.configure<AttacheExtension>("attache") {
+					    transitive.set(true)
+					
+					    library(libs.commonsLang) {
+					        transitive.set(false)
+					    }
+					}
+					""");
+
+		BuildResult result = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments("generateAttacheDescriptor")
+				.build();
+
+		assertEquals(SUCCESS, result.task(":generateAttacheDescriptor").getOutcome());
+
+		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.json");
+		String json = Files.readString(descriptor);
+		assertTrue(libraryBlock(json, "gson").contains("\"resolveTransitiveDependencies\": true"));
+		assertTrue(libraryBlock(json, "commons-lang3").contains("\"resolveTransitiveDependencies\": false"));
+	}
+
 	private void writeFile(String relativePath, String content) throws Exception {
 		Path file = tempDir.resolve(relativePath);
 		Files.createDirectories(file.getParent());
 		Files.writeString(file, content);
+	}
+
+	private String libraryBlock(String json, String artifactId) {
+		String marker = "\"artifactId\": \"" + artifactId + '"';
+		int start = json.indexOf(marker);
+		assertTrue(start >= 0, "Missing artifact block for " + artifactId);
+		int end = json.indexOf("\n    }", start);
+		assertTrue(end >= 0, "Missing end of artifact block for " + artifactId);
+		return json.substring(start, end);
 	}
 }

@@ -20,17 +20,24 @@ import java.util.Objects;
 /**
  * Attache Gradle extension.
  */
-public class AttacheMetadataExtension {
+public class AttacheExtension {
 	private final ObjectFactory objects;
+	private final Property<Boolean> transitive;
 	private final Property<Boolean> addMavenCentral;
 	private final SetProperty<String> repositories;
 	private final Map<String, AttacheLibraryMetadata> libraries = new LinkedHashMap<>();
 
 	@Inject
-	public AttacheMetadataExtension(@NotNull ObjectFactory objects) {
+	public AttacheExtension(@NotNull ObjectFactory objects) {
 		this.objects = Objects.requireNonNull(objects, "objects");
+		this.transitive = objects.property(Boolean.class).convention(false);
 		this.addMavenCentral = objects.property(Boolean.class).convention(true);
 		this.repositories = objects.setProperty(String.class).convention(Collections.emptySet());
+	}
+
+	@NotNull
+	public Property<Boolean> getTransitive() {
+		return transitive;
 	}
 
 	@NotNull
@@ -70,14 +77,14 @@ public class AttacheMetadataExtension {
 
 	@NotNull
 	public AttacheLibraryMetadata library(@NotNull String notation) {
-		return libraries.computeIfAbsent(AttacheNotation.keyFromNotation(notation), key -> new AttacheLibraryMetadata(objects, key));
+		return libraries.computeIfAbsent(AttacheNotation.keyFromNotation(notation), key -> new AttacheLibraryMetadata(objects, key, transitive));
 	}
 
 	@NotNull
 	public AttacheLibraryMetadata library(@NotNull Provider<? extends MinimalExternalModuleDependency> dependencyProvider) {
 		return libraries.computeIfAbsent(
 				AttacheNotation.keyFromDependency(Objects.requireNonNull(dependencyProvider, "dependencyProvider").get()),
-				key -> new AttacheLibraryMetadata(objects, key)
+				key -> new AttacheLibraryMetadata(objects, key, transitive)
 		);
 	}
 

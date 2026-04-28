@@ -90,17 +90,22 @@ dependencies {
 }
 ```
 
-Use the `attacheMetadata {}` block only for Attache-specific metadata:
+Use the `attache {}` block only for Attache-specific metadata:
 
 ```kotlin
-attacheMetadata {
+attache {
+    transitive.set(true)
+
     repository("https://maven.whereareiam.me/release")
     repository("https://maven.whereareiam.me/development")
 
     library(libs.guice) {
-        transitive.set(true)
         relocate("com{}google{}inject", "me.whereareiam.identica.library.guice")
         relocate("com{}google{}common", "me.whereareiam.identica.library.guava")
+    }
+
+    library(libs.jedis) {
+        transitive.set(false)
     }
 }
 ```

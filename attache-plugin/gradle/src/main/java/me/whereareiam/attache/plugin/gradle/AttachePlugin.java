@@ -1,6 +1,6 @@
 package me.whereareiam.attache.plugin.gradle;
 
-import me.whereareiam.attache.plugin.gradle.extension.AttacheMetadataExtension;
+import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension;
 import me.whereareiam.attache.plugin.gradle.task.GenerateAttacheDescriptorTask;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -12,18 +12,18 @@ import org.gradle.api.tasks.SourceSetContainer;
  * Gradle plugin entry point for Attache descriptor generation.
  */
 public class AttachePlugin implements Plugin<Project> {
+	public static final String ATTACHE_EXTENSION = "attache";
 	public static final String ATTACHE_CONFIGURATION = "attache";
 	public static final String ATTACHE_API_CONFIGURATION = "attacheApi";
 	public static final String ATTACHE_ONLY_CONFIGURATION = "attacheOnly";
 	public static final String ATTACHE_MANIFEST_CONFIGURATION = "attacheManifest";
-	public static final String ATTACHE_EXTENSION = "attacheMetadata";
 	public static final String GENERATE_TASK = "generateAttacheDescriptor";
 
 	@Override
 	public void apply(Project project) {
 		project.getExtensions().create(
 				ATTACHE_EXTENSION,
-				AttacheMetadataExtension.class,
+				AttacheExtension.class,
 				project.getObjects()
 		);
 

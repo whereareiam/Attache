@@ -4,6 +4,7 @@ import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.SetProperty;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
@@ -23,10 +24,19 @@ public class AttacheLibraryMetadata {
 	private final ListProperty<DescriptorRelocation> relocations;
 	private final ListProperty<DescriptorExcludedDependency> excludedTransitiveDependencies;
 
-	public AttacheLibraryMetadata(@NotNull ObjectFactory objects, @NotNull String key) {
+	public AttacheLibraryMetadata(
+			@NotNull ObjectFactory objects,
+			@NotNull String key,
+			@Nullable Property<Boolean> defaultTransitive
+	) {
 		Objects.requireNonNull(objects, "objects");
 		this.key = Objects.requireNonNull(key, "key");
-		this.transitive = objects.property(Boolean.class).convention(false);
+		this.transitive = objects.property(Boolean.class);
+		if (defaultTransitive != null) {
+			this.transitive.convention(defaultTransitive);
+		} else {
+			this.transitive.convention(false);
+		}
 		this.skipIfPresent = objects.property(Boolean.class).convention(true);
 		this.isolated = objects.property(Boolean.class).convention(false);
 		this.loader = objects.property(String.class);

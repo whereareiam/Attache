@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.whereareiam.attache.plugin.gradle.AttachePlugin;
 import me.whereareiam.attache.plugin.gradle.AttacheNotation;
-import me.whereareiam.attache.plugin.gradle.extension.AttacheMetadataExtension;
+import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension;
 import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
 import me.whereareiam.attache.plugin.gradle.model.DescriptorFragment;
 import me.whereareiam.attache.plugin.gradle.model.DescriptorLibrary;
@@ -44,7 +44,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 
 	@TaskAction
 	public void generate() throws IOException {
-		AttacheMetadataExtension extension = getProject().getExtensions().getByType(AttacheMetadataExtension.class);
+		AttacheExtension extension = getProject().getExtensions().getByType(AttacheExtension.class);
 		Configuration attache = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_CONFIGURATION);
 		Configuration attacheOnly = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_ONLY_CONFIGURATION);
 		Configuration manifest = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_MANIFEST_CONFIGURATION);
@@ -63,6 +63,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		fragment.setProjectName(getProject().getName());
 		fragment.setAddMavenCentral(extension.getAddMavenCentral().getOrElse(true));
 		fragment.getRepositories().addAll(extension.getRepositories().getOrElse(Set.of()));
+		boolean defaultTransitive = extension.getTransitive().getOrElse(false);
 
 		for (String key : dependencyKeys) {
 			ResolvedArtifact artifact = resolvedArtifacts.get(key);
@@ -92,6 +93,8 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 				library.getFallbackRepositories().addAll(spec.getFallbackRepositories().getOrElse(Set.of()));
 				library.getRelocations().addAll(spec.getRelocations().getOrElse(java.util.List.of()));
 				library.getExcludedTransitiveDependencies().addAll(spec.getExcludedTransitiveDependencies().getOrElse(java.util.List.of()));
+			} else {
+				library.setResolveTransitiveDependencies(defaultTransitive);
 			}
 
 			fragment.getLibraries().add(library);
