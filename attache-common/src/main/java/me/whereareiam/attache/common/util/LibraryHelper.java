@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -80,13 +81,9 @@ public final class LibraryHelper {
 				.pattern(replaceWithDots(relocation.getPattern()))
 				.relocatedPattern(replaceWithDots(relocation.getRelocatedPattern()))
 				.clearIncludes()
-				.includes(relocation.getIncludes().stream()
-						.map(LibraryHelper::replaceWithDots)
-						.collect(Collectors.toSet()))
+				.includes(normalizePatterns(relocation.getIncludes()))
 				.clearExcludes()
-				.excludes(relocation.getExcludes().stream()
-						.map(LibraryHelper::replaceWithDots)
-						.collect(Collectors.toSet()))
+				.excludes(normalizePatterns(relocation.getExcludes()))
 				.build();
 	}
 
@@ -163,5 +160,13 @@ public final class LibraryHelper {
 		String path = getPath(library);
 		return path + "-relocated-" + Math.abs(library.getRelocations().hashCode()) + ".jar";
 	}
-}
 
+	@NotNull
+	private static Collection<String> normalizePatterns(@Nullable Collection<String> patterns) {
+		if (patterns == null) return List.of();
+
+		return patterns.stream()
+				.map(LibraryHelper::replaceWithDots)
+				.collect(Collectors.toSet());
+	}
+}
