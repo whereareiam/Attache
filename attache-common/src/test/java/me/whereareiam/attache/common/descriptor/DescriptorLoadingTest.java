@@ -7,6 +7,7 @@ import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.descriptor.AttacheDescriptorFragment;
 import me.whereareiam.attache.descriptor.AttacheDescriptorLibrary;
 import me.whereareiam.attache.type.Level;
+import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,8 +20,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -83,6 +86,37 @@ class DescriptorLoadingTest {
 		}
 	}
 
+	@Test
+	void verboseModeLogsDescriptorLoadStartAndFinish() throws Exception {
+		writeDescriptor("common", fragment("common", library("alpha")));
+		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
+
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader, loggingHelper)) {
+			manager.setVerbosityMode(VerbosityMode.VERBOSE);
+			manager.loadDescriptors();
+
+			assertTrue(loggingHelper.contains("Loading declared libraries"));
+			assertTrue(loggingHelper.contains("Finished loading 1 libraries"));
+		}
+	}
+
+	@Test
+	void summaryModeLogsStartWithoutDuplicateFinish() throws Exception {
+		writeDescriptor("common", fragment("common", library("alpha")));
+		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
+
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader, loggingHelper)) {
+			manager.setVerbosityMode(VerbosityMode.SUMMARY);
+			manager.loadDescriptors();
+
+			assertTrue(loggingHelper.contains("Loading declared libraries"));
+			assertFalse(loggingHelper.contains("Finished loading 1 libraries"));
+			assertTrue(loggingHelper.contains("Loaded 1 libraries successfully"));
+		}
+	}
+
 	private void writeDescriptor(@NotNull String relativeDir, @NotNull AttacheDescriptorFragment fragment) throws Exception {
 		Path file = tempDir.resolve("META-INF/attache").resolve(relativeDir).resolve("attache.json");
 		Files.createDirectories(file.getParent());
@@ -118,7 +152,15 @@ class DescriptorLoadingTest {
 		private final List<String> loadedArtifacts = new ArrayList<>();
 
 		private TestDescriptorLibraryManager(@NotNull Path tempDir, @NotNull URLClassLoader classLoader) {
-			super(new NoopLoggingHelper(), tempDir, "lib");
+			this(tempDir, classLoader, new NoopLoggingHelper());
+		}
+
+		private TestDescriptorLibraryManager(
+				@NotNull Path tempDir,
+				@NotNull URLClassLoader classLoader,
+				@NotNull LoggingHelper loggingHelper
+		) {
+			super(loggingHelper, tempDir, "lib");
 			this.classLoader = classLoader;
 		}
 
@@ -128,7 +170,7 @@ class DescriptorLoadingTest {
 		}
 
 		@Override
-		protected DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
+		protected @NotNull DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
 			return DownloadAttempt.success(url.getBytes(StandardCharsets.UTF_8));
 		}
 
@@ -150,6 +192,27 @@ class DescriptorLoadingTest {
 
 		@Override
 		public void log(@NotNull Level level, @NotNull String message, @NotNull Throwable throwable) {
+		}
+	}
+
+	private static final class RecordingLoggingHelper implements LoggingHelper {
+		private final List<LogEntry> entries = new CopyOnWriteArrayList<>();
+
+		@Override
+		public void log(@NotNull Level level, @NotNull String message) {
+			entries.add(new LogEntry(level, message));
+		}
+
+		@Override
+		public void log(@NotNull Level level, @NotNull String message, @NotNull Throwable throwable) {
+			entries.add(new LogEntry(level, message));
+		}
+
+		private boolean contains(@NotNull String fragment) {
+			return entries.stream().anyMatch(entry -> entry.level == Level.INFO && entry.message.contains(fragment));
+		}
+
+		private record LogEntry(@NotNull Level level, @NotNull String message) {
 		}
 	}
 }

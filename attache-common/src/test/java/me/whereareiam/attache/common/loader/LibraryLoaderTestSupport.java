@@ -83,7 +83,7 @@ public abstract class LibraryLoaderTestSupport {
 		}
 
 		@Override
-		protected DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
+		protected @NotNull DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
 			downloadCount.incrementAndGet();
 			int concurrentDownloads = activeDownloads.incrementAndGet();
 			maxConcurrentDownloads.accumulateAndGet(concurrentDownloads, Math::max);

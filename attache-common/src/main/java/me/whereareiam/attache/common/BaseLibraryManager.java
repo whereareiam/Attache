@@ -678,6 +678,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	}
 
     @Override
+	@SafeVarargs
 	public final <T> void loadLibraries(@NotNull T... libraries) {
 		loadLibraries(Arrays.asList(libraries));
 	}
@@ -797,11 +798,18 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 			return;
 		}
 
+		if (verbosityMode == VerbosityMode.VERBOSE || verbosityMode == VerbosityMode.SUMMARY) {
+			logger.info("Loading declared libraries");
+		}
+
 		List<ClasspathDescriptorLoader.LoadedDescriptorFragment> fragments = classpathDescriptorLoader.load(
 				getDescriptorClassLoader(),
 				getClass()
 		);
 		if (fragments.isEmpty()) {
+			if (verbosityMode == VerbosityMode.VERBOSE || verbosityMode == VerbosityMode.SUMMARY) {
+				logger.info("No declared libraries found");
+			}
 			classpathDescriptorsLoaded = true;
 			return;
 		}
@@ -841,6 +849,10 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 					.map(origin -> origin.library.toLibraryRequest())
 					.toList();
 			loadLibraries(requests);
+		}
+
+		if (verbosityMode == VerbosityMode.VERBOSE) {
+			logger.info("Finished loading " + libraries.size() + " libraries");
 		}
 
 		classpathDescriptorsLoaded = true;
@@ -918,25 +930,23 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 	public static final class DownloadAttempt {
 		private final byte[] bytes;
-		private final Level level;
-		private final String message;
 		private final boolean notFound;
 
-		private DownloadAttempt(byte[] bytes, Level level, String message, boolean notFound) {
+		private DownloadAttempt(byte[] bytes, boolean notFound) {
 			this.bytes = bytes;
-			this.level = level;
-			this.message = message;
 			this.notFound = notFound;
 		}
 
 		@NotNull
 		public static DownloadAttempt success(byte @NotNull [] bytes) {
-			return new DownloadAttempt(requireNonNull(bytes, "bytes"), null, null, false);
+			return new DownloadAttempt(requireNonNull(bytes, "bytes"), false);
 		}
 
 		@NotNull
 		public static DownloadAttempt failure(@NotNull Level level, @NotNull String message, boolean notFound) {
-			return new DownloadAttempt(null, requireNonNull(level, "level"), requireNonNull(message, "message"), notFound);
+			requireNonNull(level, "level");
+			requireNonNull(message, "message");
+			return new DownloadAttempt(null, notFound);
 		}
 
 		byte @Nullable [] getBytes() {
@@ -945,16 +955,6 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 		boolean isSuccess() {
 			return bytes != null;
-		}
-
-		@Nullable
-		Level getLevel() {
-			return level;
-		}
-
-		@Nullable
-		String getMessage() {
-			return message;
 		}
 
 		boolean isNotFound() {
