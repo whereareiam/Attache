@@ -128,8 +128,8 @@ class DescriptorLoadingTest {
 		}
 
 		@Override
-		protected byte[] downloadLibraryBytes(@NotNull String url) {
-			return url.getBytes(StandardCharsets.UTF_8);
+		protected DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
+			return DownloadAttempt.success(url.getBytes(StandardCharsets.UTF_8));
 		}
 
 		@Override

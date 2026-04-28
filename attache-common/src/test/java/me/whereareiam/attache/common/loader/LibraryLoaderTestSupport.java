@@ -83,7 +83,7 @@ public abstract class LibraryLoaderTestSupport {
 		}
 
 		@Override
-		protected byte[] downloadLibraryBytes(@NotNull String url) {
+		protected DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
 			downloadCount.incrementAndGet();
 			int concurrentDownloads = activeDownloads.incrementAndGet();
 			maxConcurrentDownloads.accumulateAndGet(concurrentDownloads, Math::max);
@@ -93,7 +93,7 @@ public abstract class LibraryLoaderTestSupport {
 				if (releaseDownloads.getCount() > 0 && !releaseDownloads.await(2, TimeUnit.SECONDS))
 					throw new RuntimeException("Timed out waiting to release test downloads");
 
-				return url.getBytes(StandardCharsets.UTF_8);
+				return DownloadAttempt.success(url.getBytes(StandardCharsets.UTF_8));
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 				throw new RuntimeException("Interrupted while simulating download", e);

@@ -510,7 +510,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	}
 
 	@NotNull
-	DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
+	protected DownloadAttempt downloadLibraryAttempt(@NotNull String url) {
 		try {
 			URLConnection connection = java.net.URI.create(requireNonNull(url, "url")).toURL().openConnection();
 
@@ -916,7 +916,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		}
 	}
 
-	static final class DownloadAttempt {
+	public static final class DownloadAttempt {
 		private final byte[] bytes;
 		private final Level level;
 		private final String message;
@@ -930,12 +930,12 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		}
 
 		@NotNull
-		private static DownloadAttempt success(byte @NotNull [] bytes) {
+		public static DownloadAttempt success(byte @NotNull [] bytes) {
 			return new DownloadAttempt(requireNonNull(bytes, "bytes"), null, null, false);
 		}
 
 		@NotNull
-		private static DownloadAttempt failure(@NotNull Level level, @NotNull String message, boolean notFound) {
+		public static DownloadAttempt failure(@NotNull Level level, @NotNull String message, boolean notFound) {
 			return new DownloadAttempt(null, requireNonNull(level, "level"), requireNonNull(message, "message"), notFound);
 		}
 
