@@ -4,15 +4,12 @@ import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.proxy.ProxyServer;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
-import me.whereareiam.attache.common.logging.adapter.JDKLoggingHelper;
+import me.whereareiam.attache.type.Level;
 import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
 
 import static java.util.Objects.requireNonNull;
 
@@ -71,7 +68,7 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 		this(
 				proxyServer,
 				pluginContainer,
-				new JDKLoggingHelper(adaptSlf4jLogger(requireNonNull(logger, "logger"))),
+				createLoggingHelper(requireNonNull(logger, "logger")),
 				dataDirectory,
 				directoryName,
 				verbosityMode
@@ -119,49 +116,34 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 	}
 
 	/**
-	 * Adapts an SLF4J logger to a JUL logger for compatibility with JDKLoggingHelper.
+	 * Adapts an SLF4J logger to Attache's logging abstraction directly.
 	 *
 	 * @param slf4jLogger the SLF4J logger
-	 * @return adapted JUL logger
+	 * @return adapted logging helper
 	 */
-	private static java.util.logging.Logger adaptSlf4jLogger(@NotNull Logger slf4jLogger) {
-		java.util.logging.Logger julLogger = java.util.logging.Logger.getLogger(slf4jLogger.getName());
-		julLogger.setUseParentHandlers(false);
-		
-		julLogger.addHandler(new Handler() {
+	@NotNull
+	private static LoggingHelper createLoggingHelper(@NotNull Logger slf4jLogger) {
+		return new LoggingHelper() {
 			@Override
-			public void publish(LogRecord record) {
-				String message = record.getMessage();
-				Level level = record.getLevel();
-				
-				if (level.intValue() >= Level.SEVERE.intValue()) {
-					slf4jLogger.error(message, record.getThrown());
-					return;
+			public void log(@NotNull Level level, @NotNull String message) {
+				switch (level) {
+					case DEBUG -> slf4jLogger.debug(message);
+					case INFO -> slf4jLogger.info(message);
+					case WARN -> slf4jLogger.warn(message);
+					case ERROR -> slf4jLogger.error(message);
 				}
-
-				if (level.intValue() >= Level.WARNING.intValue()) {
-					slf4jLogger.warn(message, record.getThrown());
-					return;
-				}
-
-				if (level.intValue() >= Level.INFO.intValue()) {
-					slf4jLogger.info(message, record.getThrown());
-					return;
-				}
-
-				slf4jLogger.debug(message, record.getThrown());
 			}
 
 			@Override
-			public void flush() {
+			public void log(@NotNull Level level, @NotNull String message, @NotNull Throwable throwable) {
+				switch (level) {
+					case DEBUG -> slf4jLogger.debug(message, throwable);
+					case INFO -> slf4jLogger.info(message, throwable);
+					case WARN -> slf4jLogger.warn(message, throwable);
+					case ERROR -> slf4jLogger.error(message, throwable);
+				}
 			}
-
-			@Override
-			public void close() {
-			}
-		});
-		
-		return julLogger;
+		};
 	}
 
 	@Override
