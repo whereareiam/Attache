@@ -16,6 +16,8 @@ import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.ProjectDependency;
 import org.gradle.api.artifacts.ResolvedArtifact;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
 import org.jetbrains.annotations.NotNull;
@@ -42,12 +44,43 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 	@OutputDirectory
 	public abstract DirectoryProperty getOutputDirectory();
 
+	@Input
+	public abstract Property<String> getDescriptorPath();
+
+	@Input
+	public abstract Property<String> getDescriptorJson();
+
 	@TaskAction
 	public void generate() throws IOException {
-		AttacheExtension extension = getProject().getExtensions().getByType(AttacheExtension.class);
-		Configuration attache = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_CONFIGURATION);
-		Configuration attacheOnly = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_ONLY_CONFIGURATION);
-		Configuration manifest = getProject().getConfigurations().getByName(AttachePlugin.ATTACHE_MANIFEST_CONFIGURATION);
+		Path outputDirectory = getOutputDirectory().get().getAsFile().toPath();
+		Path descriptorFile = outputDirectory.resolve(getDescriptorPath().get());
+		Files.createDirectories(descriptorFile.getParent());
+		Files.writeString(descriptorFile, getDescriptorJson().get(), StandardCharsets.UTF_8);
+	}
+
+	@NotNull
+	public static String descriptorPathFor(@NotNull String projectPath, @NotNull String projectName) {
+		String normalized = Objects.requireNonNull(projectPath, "projectPath");
+		if (":".equals(normalized)) {
+			normalized = Objects.requireNonNull(projectName, "projectName");
+		} else {
+			normalized = normalized.replaceFirst("^:", "").replace(':', '/');
+		}
+
+		return "META-INF/attache/" + normalized + "/attache.json";
+	}
+
+	@NotNull
+	public static String renderDescriptor(@NotNull org.gradle.api.Project project) {
+		return GSON.toJson(buildDescriptorFragment(project));
+	}
+
+	@NotNull
+	public static DescriptorFragment buildDescriptorFragment(@NotNull org.gradle.api.Project project) {
+		AttacheExtension extension = project.getExtensions().getByType(AttacheExtension.class);
+		Configuration attache = project.getConfigurations().getByName(AttachePlugin.ATTACHE_CONFIGURATION);
+		Configuration attacheOnly = project.getConfigurations().getByName(AttachePlugin.ATTACHE_ONLY_CONFIGURATION);
+		Configuration manifest = project.getConfigurations().getByName(AttachePlugin.ATTACHE_MANIFEST_CONFIGURATION);
 
 		validateDependencies(attache);
 		validateDependencies(attacheOnly);
@@ -59,8 +92,8 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		Map<String, ResolvedArtifact> resolvedArtifacts = resolveArtifacts(manifest);
 
 		DescriptorFragment fragment = new DescriptorFragment();
-		fragment.setProjectPath(getProject().getPath());
-		fragment.setProjectName(getProject().getName());
+		fragment.setProjectPath(project.getPath());
+		fragment.setProjectName(project.getName());
 		fragment.setAddMavenCentral(extension.getAddMavenCentral().getOrElse(true));
 		fragment.getRepositories().addAll(extension.getRepositories().getOrElse(Set.of()));
 		boolean defaultTransitive = extension.getTransitive().getOrElse(false);
@@ -68,7 +101,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		for (String key : dependencyKeys) {
 			ResolvedArtifact artifact = resolvedArtifacts.get(key);
 			if (artifact == null) {
-				throw new GradleException("No resolved artifact found for Attache dependency " + key + " in project " + getProject().getPath());
+				throw new GradleException("No resolved artifact found for Attache dependency " + key + " in project " + project.getPath());
 			}
 
 			rejectNonJarArtifact(artifact);
@@ -100,25 +133,10 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 			fragment.getLibraries().add(library);
 		}
 
-		Path outputDirectory = getOutputDirectory().get().getAsFile().toPath();
-		Path descriptorFile = outputDirectory.resolve(descriptorPathFor(getProject().getPath(), getProject().getName()));
-		Files.createDirectories(descriptorFile.getParent());
-		Files.writeString(descriptorFile, GSON.toJson(fragment), StandardCharsets.UTF_8);
+		return fragment;
 	}
 
-	@NotNull
-	public static String descriptorPathFor(@NotNull String projectPath, @NotNull String projectName) {
-		String normalized = Objects.requireNonNull(projectPath, "projectPath");
-		if (":".equals(normalized)) {
-			normalized = Objects.requireNonNull(projectName, "projectName");
-		} else {
-			normalized = normalized.replaceFirst("^:", "").replace(':', '/');
-		}
-
-		return "META-INF/attache/" + normalized + "/attache.json";
-	}
-
-	private void validateDependencies(@NotNull Configuration configuration) {
+	private static void validateDependencies(@NotNull Configuration configuration) {
 		for (Dependency dependency : configuration.getAllDependencies()) {
 			if (dependency instanceof ProjectDependency) {
 				throw new GradleException("Attache configuration does not support project dependencies: " + dependency);
@@ -129,14 +147,14 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		}
 	}
 
-	private void collectDependencyKeys(@NotNull Configuration configuration, @NotNull Set<String> dependencyKeys) {
+	private static void collectDependencyKeys(@NotNull Configuration configuration, @NotNull Set<String> dependencyKeys) {
 		for (Dependency dependency : configuration.getAllDependencies()) {
 			dependencyKeys.add(AttacheNotation.keyFromNotation(dependency.getGroup() + ':' + dependency.getName()));
 		}
 	}
 
 	@NotNull
-	private Map<String, ResolvedArtifact> resolveArtifacts(@NotNull Configuration configuration) {
+	private static Map<String, ResolvedArtifact> resolveArtifacts(@NotNull Configuration configuration) {
 		LinkedHashMap<String, ResolvedArtifact> artifacts = new LinkedHashMap<>();
 		for (ResolvedArtifact artifact : configuration.getResolvedConfiguration().getResolvedArtifacts()) {
 			String key = artifact.getModuleVersion().getId().getGroup() + ':' + artifact.getName();
@@ -145,7 +163,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		return artifacts;
 	}
 
-	private void rejectNonJarArtifact(@NotNull ResolvedArtifact artifact) {
+	private static void rejectNonJarArtifact(@NotNull ResolvedArtifact artifact) {
 		String extension = artifact.getExtension();
 		String type = artifact.getType();
 		if ("jar".equalsIgnoreCase(extension) || "jar".equalsIgnoreCase(type)) {

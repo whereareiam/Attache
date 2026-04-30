@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS;
+import static org.gradle.testkit.runner.TaskOutcome.UP_TO_DATE;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AttachePluginFunctionalTest {
@@ -183,6 +184,65 @@ class AttachePluginFunctionalTest {
 		String json = Files.readString(descriptor);
 		assertTrue(libraryBlock(json, "gson").contains("\"resolveTransitiveDependencies\": true"));
 		assertTrue(libraryBlock(json, "commons-lang3").contains("\"resolveTransitiveDependencies\": false"));
+	}
+
+	@Test
+	void regeneratesDescriptorWhenVersionCatalogDependencyChanges() throws Exception {
+		writeFile("settings.gradle.kts", """
+				rootProject.name = "fixture"
+				
+				dependencyResolutionManagement {
+				    repositories {
+				        mavenCentral()
+				    }
+				}
+				""");
+		writeFile("gradle/libs.versions.toml", """
+				[versions]
+				commonsLang = "3.14.0"
+				
+				[libraries]
+				commonsLang = { group = "org.apache.commons", name = "commons-lang3", version.ref = "commonsLang" }
+				""");
+		writeFile("build.gradle.kts", """
+				plugins {
+				    java
+				    id("me.whereareiam.attache")
+				}
+				
+				dependencies {
+				    attache(libs.commonsLang)
+				}
+				""");
+
+		BuildResult first = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments("generateAttacheDescriptor")
+				.build();
+
+		assertEquals(SUCCESS, first.task(":generateAttacheDescriptor").getOutcome());
+
+		writeFile("gradle/libs.versions.toml", """
+				[versions]
+				commonsLang = "3.17.0"
+				
+				[libraries]
+				commonsLang = { group = "org.apache.commons", name = "commons-lang3", version.ref = "commonsLang" }
+				""");
+
+		BuildResult second = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments("generateAttacheDescriptor")
+				.build();
+
+		assertNotEquals(UP_TO_DATE, second.task(":generateAttacheDescriptor").getOutcome());
+
+		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.json");
+		String json = Files.readString(descriptor);
+		assertTrue(json.contains("\"version\": \"3.17.0\""));
+		assertFalse(json.contains("\"version\": \"3.14.0\""));
 	}
 
 	private void writeFile(String relativePath, String content) throws Exception {
