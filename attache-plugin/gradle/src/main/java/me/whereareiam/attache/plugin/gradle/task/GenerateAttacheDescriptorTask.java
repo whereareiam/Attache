@@ -1,15 +1,17 @@
 package me.whereareiam.attache.plugin.gradle.task;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import me.whereareiam.attache.descriptor.AttacheDescriptorCodec;
+import me.whereareiam.attache.descriptor.AttacheDescriptorFragment;
+import me.whereareiam.attache.descriptor.AttacheDescriptorLibrary;
+import me.whereareiam.attache.model.ExcludedDependency;
+import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.plugin.gradle.AttachePlugin;
 import me.whereareiam.attache.plugin.gradle.AttacheNotation;
 import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension;
 import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
-import me.whereareiam.attache.plugin.gradle.model.DescriptorFragment;
-import me.whereareiam.attache.plugin.gradle.model.DescriptorLibrary;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
@@ -36,11 +38,6 @@ import java.util.Set;
  * Generates a module-scoped Attache descriptor fragment.
  */
 public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
-	private static final Gson GSON = new GsonBuilder()
-			.disableHtmlEscaping()
-			.setPrettyPrinting()
-			.create();
-
 	@OutputDirectory
 	public abstract DirectoryProperty getOutputDirectory();
 
@@ -48,35 +45,60 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 	public abstract Property<String> getDescriptorPath();
 
 	@Input
-	public abstract Property<String> getDescriptorJson();
+	public abstract Property<String> getDescriptorContent();
 
 	@TaskAction
 	public void generate() throws IOException {
 		Path outputDirectory = getOutputDirectory().get().getAsFile().toPath();
 		Path descriptorFile = outputDirectory.resolve(getDescriptorPath().get());
 		Files.createDirectories(descriptorFile.getParent());
-		Files.writeString(descriptorFile, getDescriptorJson().get(), StandardCharsets.UTF_8);
+		Files.writeString(descriptorFile, getDescriptorContent().get(), StandardCharsets.UTF_8);
+	}
+
+	@NotNull
+	public static String descriptorPathFor(@NotNull Project project) {
+		Objects.requireNonNull(project, "project");
+
+		Path rootDirectory = project.getRootProject().getProjectDir().toPath().toAbsolutePath().normalize();
+		Path projectDirectory = project.getProjectDir().toPath().toAbsolutePath().normalize();
+		String normalized;
+
+		if (projectDirectory.equals(rootDirectory)) {
+			normalized = project.getName();
+		} else if (projectDirectory.startsWith(rootDirectory)) {
+			normalized = rootDirectory.relativize(projectDirectory)
+					.toString()
+					.replace(projectDirectory.getFileSystem().getSeparator(), "/");
+		} else {
+			normalized = descriptorKeyFromProjectPath(project.getPath(), project.getName());
+		}
+
+		return "META-INF/attache/" + normalized + "/attache.xml";
 	}
 
 	@NotNull
 	public static String descriptorPathFor(@NotNull String projectPath, @NotNull String projectName) {
+		return "META-INF/attache/" + descriptorKeyFromProjectPath(projectPath, projectName) + "/attache.xml";
+	}
+
+	@NotNull
+	private static String descriptorKeyFromProjectPath(@NotNull String projectPath, @NotNull String projectName) {
 		String normalized = Objects.requireNonNull(projectPath, "projectPath");
 		if (":".equals(normalized)) {
 			normalized = Objects.requireNonNull(projectName, "projectName");
 		} else {
 			normalized = normalized.replaceFirst("^:", "").replace(':', '/');
 		}
-
-		return "META-INF/attache/" + normalized + "/attache.json";
+		return normalized;
 	}
 
 	@NotNull
 	public static String renderDescriptor(@NotNull org.gradle.api.Project project) {
-		return GSON.toJson(buildDescriptorFragment(project));
+		return AttacheDescriptorCodec.encode(buildDescriptorFragment(project));
 	}
 
 	@NotNull
-	public static DescriptorFragment buildDescriptorFragment(@NotNull org.gradle.api.Project project) {
+	public static AttacheDescriptorFragment buildDescriptorFragment(@NotNull org.gradle.api.Project project) {
 		AttacheExtension extension = project.getExtensions().getByType(AttacheExtension.class);
 		Configuration attache = project.getConfigurations().getByName(AttachePlugin.ATTACHE_CONFIGURATION);
 		Configuration attacheOnly = project.getConfigurations().getByName(AttachePlugin.ATTACHE_ONLY_CONFIGURATION);
@@ -91,7 +113,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 
 		Map<String, ResolvedArtifact> resolvedArtifacts = resolveArtifacts(manifest);
 
-		DescriptorFragment fragment = new DescriptorFragment();
+		AttacheDescriptorFragment fragment = new AttacheDescriptorFragment();
 		fragment.setProjectPath(project.getPath());
 		fragment.setProjectName(project.getName());
 		fragment.setAddMavenCentral(extension.getAddMavenCentral().getOrElse(true));
@@ -106,7 +128,7 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 
 			rejectNonJarArtifact(artifact);
 
-			DescriptorLibrary library = new DescriptorLibrary();
+			AttacheDescriptorLibrary library = new AttacheDescriptorLibrary();
 			library.setGroupId(artifact.getModuleVersion().getId().getGroup());
 			library.setArtifactId(artifact.getName());
 			library.setVersion(artifact.getModuleVersion().getId().getVersion());
@@ -124,8 +146,15 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 				library.setLoader(spec.getLoader().getOrNull());
 				library.getRepositories().addAll(spec.getRepositories().getOrElse(Set.of()));
 				library.getFallbackRepositories().addAll(spec.getFallbackRepositories().getOrElse(Set.of()));
-				library.getRelocations().addAll(spec.getRelocations().getOrElse(java.util.List.of()));
-				library.getExcludedTransitiveDependencies().addAll(spec.getExcludedTransitiveDependencies().getOrElse(java.util.List.of()));
+				spec.getRelocations().getOrElse(java.util.List.of()).stream()
+						.map(relocation -> RelocationRule.builder()
+								.pattern(relocation.getPattern())
+								.relocatedPattern(relocation.getRelocatedPattern())
+								.build())
+						.forEach(library.getRelocations()::add);
+				spec.getExcludedTransitiveDependencies().getOrElse(java.util.List.of()).stream()
+						.map(excluded -> new ExcludedDependency(excluded.getGroupId(), excluded.getArtifactId()))
+						.forEach(library.getExcludedTransitiveDependencies()::add);
 			} else {
 				library.setResolveTransitiveDependencies(defaultTransitive);
 			}

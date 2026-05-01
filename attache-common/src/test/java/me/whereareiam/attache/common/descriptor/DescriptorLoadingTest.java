@@ -1,9 +1,8 @@
 package me.whereareiam.attache.common.descriptor;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
+import me.whereareiam.attache.descriptor.AttacheDescriptorCodec;
 import me.whereareiam.attache.descriptor.AttacheDescriptorFragment;
 import me.whereareiam.attache.descriptor.AttacheDescriptorLibrary;
 import me.whereareiam.attache.type.Level;
@@ -28,8 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DescriptorLoadingTest {
-	private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-
 	@TempDir
 	Path tempDir;
 
@@ -81,8 +78,8 @@ class DescriptorLoadingTest {
 		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
 		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
 			IllegalStateException exception = assertThrows(IllegalStateException.class, manager::loadDescriptors);
-			assertTrue(exception.getMessage().contains("first/attache.json"));
-			assertTrue(exception.getMessage().contains("second/attache.json"));
+			assertTrue(exception.getMessage().contains("first/attache.xml"));
+			assertTrue(exception.getMessage().contains("second/attache.xml"));
 		}
 	}
 
@@ -118,9 +115,9 @@ class DescriptorLoadingTest {
 	}
 
 	private void writeDescriptor(@NotNull String relativeDir, @NotNull AttacheDescriptorFragment fragment) throws Exception {
-		Path file = tempDir.resolve("META-INF/attache").resolve(relativeDir).resolve("attache.json");
+		Path file = tempDir.resolve("META-INF/attache").resolve(relativeDir).resolve("attache.xml");
 		Files.createDirectories(file.getParent());
-		Files.writeString(file, GSON.toJson(fragment), StandardCharsets.UTF_8);
+		Files.writeString(file, AttacheDescriptorCodec.encode(fragment), StandardCharsets.UTF_8);
 	}
 
 	@NotNull

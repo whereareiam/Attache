@@ -5,7 +5,6 @@ lombok = "1.18.42"
 jar-relocator = "1.9"
 jetbrains-annotations = "26.0.2"
 junit = "6.0.0"
-gson = "2.13.2"
 
 # platforms apis
 bukkit = "1.21.10-R0.1-SNAPSHOT"
@@ -23,7 +22,6 @@ assertj = "3.27.6"
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
 jar-relocator = { group = "me.lucko", name = "jar-relocator", version.ref = "jar-relocator" }
 jetbrains-annotations = { group = "org.jetbrains", name = "annotations", version.ref = "jetbrains-annotations" }
-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 
 # junit
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }

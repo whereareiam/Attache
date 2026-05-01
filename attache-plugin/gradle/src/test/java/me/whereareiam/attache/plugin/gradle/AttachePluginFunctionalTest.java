@@ -89,16 +89,16 @@ class AttachePluginFunctionalTest {
 		assertEquals(SUCCESS, result.task(":generatePomFileForMavenJavaPublication").getOutcome());
 		assertEquals(SUCCESS, result.task(":verifyAttacheCompileScopes").getOutcome());
 
-		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.json");
-		String json = Files.readString(descriptor);
+		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.xml");
+		String xml = Files.readString(descriptor);
 		Path pom = tempDir.resolve("build/publications/mavenJava/pom-default.xml");
 		String pomXml = Files.readString(pom);
 		assertTrue(Files.exists(descriptor));
-		assertTrue(json.contains("\"artifactId\": \"gson\""));
-		assertTrue(json.contains("\"artifactId\": \"commons-lang3\""));
-		assertTrue(json.contains("\"resolveTransitiveDependencies\": true"));
-		assertTrue(json.contains("\"pattern\": \"com.google.gson\""));
-		assertTrue(json.contains("\"relocatedPattern\": \"example.libs.gson\""));
+		assertTrue(xml.contains("artifact-id=\"gson\""));
+		assertTrue(xml.contains("artifact-id=\"commons-lang3\""));
+		assertTrue(libraryBlock(xml, "gson").contains("resolve-transitive-dependencies=\"true\""));
+		assertTrue(xml.contains("pattern=\"com.google.gson\""));
+		assertTrue(xml.contains("relocated-pattern=\"example.libs.gson\""));
 		assertTrue(Files.exists(pom));
 		assertTrue(pomXml.contains("<artifactId>gson</artifactId>"));
         assertFalse(pomXml.contains("<artifactId>commons-lang3</artifactId>"));
@@ -180,10 +180,10 @@ class AttachePluginFunctionalTest {
 
 		assertEquals(SUCCESS, result.task(":generateAttacheDescriptor").getOutcome());
 
-		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.json");
-		String json = Files.readString(descriptor);
-		assertTrue(libraryBlock(json, "gson").contains("\"resolveTransitiveDependencies\": true"));
-		assertTrue(libraryBlock(json, "commons-lang3").contains("\"resolveTransitiveDependencies\": false"));
+		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.xml");
+		String xml = Files.readString(descriptor);
+		assertTrue(libraryBlock(xml, "gson").contains("resolve-transitive-dependencies=\"true\""));
+		assertTrue(libraryBlock(xml, "commons-lang3").contains("resolve-transitive-dependencies=\"false\""));
 	}
 
 	@Test
@@ -239,10 +239,56 @@ class AttachePluginFunctionalTest {
 
 		assertNotEquals(UP_TO_DATE, second.task(":generateAttacheDescriptor").getOutcome());
 
-		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.json");
-		String json = Files.readString(descriptor);
-		assertTrue(json.contains("\"version\": \"3.17.0\""));
-		assertFalse(json.contains("\"version\": \"3.14.0\""));
+		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.xml");
+		String xml = Files.readString(descriptor);
+		assertTrue(xml.contains("version=\"3.17.0\""));
+		assertFalse(xml.contains("version=\"3.14.0\""));
+	}
+
+	@Test
+	void usesNestedProjectDirectoryForDescriptorPathWhenGradlePathIsFlattened() throws Exception {
+		writeFile("settings.gradle.kts", """
+				rootProject.name = "fixture"
+				
+				include(":platform-velocity-bootstrap")
+				project(":platform-velocity-bootstrap").projectDir = file("platform/velocity/bootstrap")
+				
+				dependencyResolutionManagement {
+				    repositories {
+				        mavenCentral()
+				    }
+				
+				    versionCatalogs {
+				        create("libs") {
+				            library("commonsLang", "org.apache.commons:commons-lang3:3.17.0")
+				        }
+				    }
+				}
+				""");
+		writeFile("platform/velocity/bootstrap/build.gradle.kts", """
+				plugins {
+				    java
+				    id("me.whereareiam.attache")
+				}
+				
+				dependencies {
+				    attache(libs.commonsLang)
+				}
+				""");
+
+		BuildResult result = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments(":platform-velocity-bootstrap:generateAttacheDescriptor")
+				.build();
+
+		assertEquals(SUCCESS, result.task(":platform-velocity-bootstrap:generateAttacheDescriptor").getOutcome());
+		assertTrue(Files.exists(
+				tempDir.resolve("platform/velocity/bootstrap/build/generated/resources/attache/META-INF/attache/platform/velocity/bootstrap/attache.xml")
+		));
+		assertFalse(Files.exists(
+				tempDir.resolve("platform/velocity/bootstrap/build/generated/resources/attache/META-INF/attache/platform-velocity-bootstrap/attache.xml")
+		));
 	}
 
 	private void writeFile(String relativePath, String content) throws Exception {
@@ -251,12 +297,26 @@ class AttachePluginFunctionalTest {
 		Files.writeString(file, content);
 	}
 
-	private String libraryBlock(String json, String artifactId) {
-		String marker = "\"artifactId\": \"" + artifactId + '"';
-		int start = json.indexOf(marker);
+	private String libraryBlock(String xml, String artifactId) {
+		String marker = "<library";
+		int start = xml.indexOf(marker);
+		while (start >= 0) {
+			int tagEnd = xml.indexOf('>', start);
+			assertTrue(tagEnd >= 0, "Missing end of library start tag for " + artifactId);
+			String header = xml.substring(start, tagEnd);
+			if (header.contains("artifact-id=\"" + artifactId + '"')) {
+				if (header.endsWith("/")) {
+					return header;
+				}
+
+				int end = xml.indexOf("</library>", tagEnd);
+				assertTrue(end >= 0, "Missing end of artifact block for " + artifactId);
+				return xml.substring(start, end);
+			}
+			start = xml.indexOf(marker, tagEnd);
+		}
+
 		assertTrue(start >= 0, "Missing artifact block for " + artifactId);
-		int end = json.indexOf("\n    }", start);
-		assertTrue(end >= 0, "Missing end of artifact block for " + artifactId);
-		return json.substring(start, end);
+		return "";
 	}
 }

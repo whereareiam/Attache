@@ -31,7 +31,7 @@ gradlePlugin {
 }
 
 dependencies {
-    implementation(libs.gson)
+    implementation(projects.attacheApi)
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
 

@@ -1,7 +1,6 @@
 package me.whereareiam.attache.common.descriptor;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import me.whereareiam.attache.descriptor.AttacheDescriptorCodec;
 import me.whereareiam.attache.descriptor.AttacheDescriptorFragment;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,8 +29,7 @@ import java.util.jar.JarFile;
  */
 public final class ClasspathDescriptorLoader {
 	private static final String ROOT = "META-INF/attache";
-	private static final String FILE_NAME = "attache.json";
-	private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+	private static final String FILE_NAME = "attache.xml";
 
 	@NotNull
 	public List<LoadedDescriptorFragment> load(@NotNull ClassLoader classLoader, @NotNull Class<?> anchorClass) {
@@ -219,7 +217,7 @@ public final class ClasspathDescriptorLoader {
 		}
 
 		try (InputStream inputStream = inputStreamSupplier.open()) {
-			AttacheDescriptorFragment fragment = GSON.fromJson(new java.io.InputStreamReader(inputStream), AttacheDescriptorFragment.class);
+			AttacheDescriptorFragment fragment = AttacheDescriptorCodec.decode(inputStream);
 			if (fragment == null) {
 				throw new IllegalStateException("Descriptor " + location + " is empty");
 			}

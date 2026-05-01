@@ -110,23 +110,23 @@ attache {
 }
 ```
 
-The plugin writes one descriptor fragment per Gradle project to:
+The plugin writes one descriptor fragment per Gradle project to a path derived from the project's directory relative to the repository root:
 
 ```text
-META-INF/attache/<project-path>/attache.json
+META-INF/attache/<project-path>/attache.xml
 ```
 
 Examples:
 
 ```text
 project(":identica-common")
--> META-INF/attache/identica-common/attache.json
+-> META-INF/attache/identica-common/attache.xml
 
 project(":identica-provider:provider-premium:premium")
--> META-INF/attache/identica-provider/provider-premium/premium/attache.json
+-> META-INF/attache/identica-provider/provider-premium/premium/attache.xml
 ```
 
-At runtime, Attache managers can scan `META-INF/attache/**/attache.json`, merge all discovered fragments, and load the declared libraries when `loadDescriptors()` is called.
+At runtime, Attache managers can scan `META-INF/attache/**/attache.xml`, merge all discovered fragments, and load the declared libraries when `loadDescriptors()` is called.
 
 ## Usage
 
@@ -207,7 +207,7 @@ libraryManager.loadDescriptors();
 
 Calling `loadDescriptors()` will:
 
-- discover all `META-INF/attache/**/attache.json` fragments on the classpath
+- discover all `META-INF/attache/**/attache.xml` fragments on the classpath
 - merge repositories and library definitions
 - download and load the libraries automatically
 

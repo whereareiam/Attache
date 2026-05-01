@@ -55,10 +55,8 @@ public class AttachePlugin implements Plugin<Project> {
 
 			var descriptorTask = project.getTasks().register(GENERATE_TASK, GenerateAttacheDescriptorTask.class, task -> {
 				task.getOutputDirectory().convention(project.getLayout().getBuildDirectory().dir("generated/resources/attache"));
-				task.getDescriptorPath().convention(project.provider(() ->
-						GenerateAttacheDescriptorTask.descriptorPathFor(project.getPath(), project.getName())
-				));
-				task.getDescriptorJson().convention(project.provider(() ->
+				task.getDescriptorPath().convention(project.provider(() -> GenerateAttacheDescriptorTask.descriptorPathFor(project)));
+				task.getDescriptorContent().convention(project.provider(() ->
 						GenerateAttacheDescriptorTask.renderDescriptor(project)
 				));
 			});

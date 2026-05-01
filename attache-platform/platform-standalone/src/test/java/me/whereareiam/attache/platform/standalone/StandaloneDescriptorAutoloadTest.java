@@ -42,23 +42,19 @@ class StandaloneDescriptorAutoloadTest {
 	}
 
 	private void writeDescriptor(@NotNull Path sourceJar) throws IOException {
-		Path descriptor = tempDir.resolve("META-INF/attache/standalone-test/attache.json");
+		Path descriptor = tempDir.resolve("META-INF/attache/standalone-test/attache.xml");
 		Files.createDirectories(descriptor.getParent());
 		Files.writeString(descriptor, """
-				{
-				  "projectPath": ":standalone-test",
-				  "projectName": "standalone-test",
-				  "libraries": [
-				    {
-				      "groupId": "example.test",
-				      "artifactId": "alpha",
-				      "version": "1.0.0",
-				      "urls": [
-				        "%s"
-				      ]
-				    }
-				  ]
-				}
+				<?xml version="1.0" encoding="UTF-8"?>
+				<attache-descriptor project-path=":standalone-test" project-name="standalone-test" add-maven-central="true">
+				  <libraries>
+				    <library group-id="example.test" artifact-id="alpha" version="1.0.0">
+				      <urls>
+				        <url>%s</url>
+				      </urls>
+				    </library>
+				  </libraries>
+				</attache-descriptor>
 				""".formatted(sourceJar.toUri()), StandardCharsets.UTF_8);
 	}
 
