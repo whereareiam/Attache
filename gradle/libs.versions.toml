@@ -7,8 +7,9 @@ jetbrains-annotations = "26.0.2"
 junit = "6.0.0"
 
 # platforms apis
-bukkit = "1.21.10-R0.1-SNAPSHOT"
-paper = "1.21.10-R0.1-SNAPSHOT"
+bungee = "26.1-R0.1-SNAPSHOT"
+bukkit = "26.1.2-R0.1-SNAPSHOT"
+paper = "26.1.2.build.63-stable"
 velocity = "3.4.0-SNAPSHOT"
 
 # platforms apis -> spring
@@ -28,6 +29,7 @@ junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.r
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junit" }
 
 # platform apis
+bungee = { group = "net.md-5", name = "bungeecord-api", version.ref = "bungee" }
 bukkit = { group = "org.spigotmc", name = "spigot-api", version.ref = "bukkit" }
 paper = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
 velocity = { group = "com.velocitypowered", name = "velocity-api", version.ref = "velocity" }

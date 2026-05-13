@@ -15,7 +15,7 @@ Attache allows you to download, cache, relocate, and load dependencies at runtim
 
 - **Runtime Dependency Loading**: Download and load Maven artifacts at runtime
 - **Relocation Support**: Relocate packages to avoid conflicts using jar-relocator
-- **Multiple Platforms**: Support for standalone Java applications and Paper plugins
+- **Multiple Platforms**: Support for standalone Java applications, Bukkit-family plugins, BungeeCord plugins, and Velocity plugins
 - **Repository Management**: Support for Maven Central, custom repositories, and more
 - **Isolated Class Loading**: Load libraries in isolated class loaders when needed
 - **Checksum Verification**: Verify downloaded libraries with SHA-256 checksums
@@ -55,6 +55,14 @@ dependencies {
 ```gradle
 dependencies {
     implementation("me.whereareiam:attache-paper:VERSION")
+}
+```
+
+**For BungeeCord Plugins:**
+
+```gradle
+dependencies {
+    implementation("me.whereareiam:attache-bungeecord:VERSION")
 }
 ```
 
@@ -196,6 +204,22 @@ public class MyPlugin extends JavaPlugin {
 }
 ```
 
+### BungeeCord Plugin Example
+
+```java
+import me.whereareiam.attache.platform.bungeecord.BungeeCordLibraryManager;
+import net.md_5.bungee.api.plugin.Plugin;
+
+public final class MyProxyPlugin extends Plugin {
+	@Override
+	public void onEnable() {
+		BungeeCordLibraryManager libraryManager = new BungeeCordLibraryManager(this);
+		libraryManager.addMavenCentral();
+		libraryManager.loadDescriptors();
+	}
+}
+```
+
 ### Zero-Config Runtime Loading
 
 When your jar contains Gradle-generated Attache descriptors, trigger descriptor loading explicitly after creating the manager:
@@ -210,6 +234,8 @@ Calling `loadDescriptors()` will:
 - discover all `META-INF/attache/**/attache.xml` fragments on the classpath
 - merge repositories and library definitions
 - download and load the libraries automatically
+
+For BungeeCord plugins, avoid declaring the same artifacts in Bungee's native `libraries` block and in Attache-managed descriptors at the same time. Let one system own each dependency to avoid duplicate loading and version ambiguity.
 
 ### Spring Boot Example (auto-configuration)
 
