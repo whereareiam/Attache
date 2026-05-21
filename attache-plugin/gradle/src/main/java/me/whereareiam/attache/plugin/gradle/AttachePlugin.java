@@ -7,6 +7,8 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.tasks.SourceSetContainer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Gradle plugin entry point for Attache descriptor generation.
@@ -21,11 +23,8 @@ public class AttachePlugin implements Plugin<Project> {
 
 	@Override
 	public void apply(Project project) {
-		project.getExtensions().create(
-				ATTACHE_EXTENSION,
-				AttacheExtension.class,
-				project.getObjects()
-		);
+		AttacheExtension rootDefaults = rootDefaults(project);
+		attacheExtension(project, rootDefaults);
 
 		Configuration attacheApi = project.getConfigurations().create(ATTACHE_API_CONFIGURATION, configuration -> {
 			configuration.setCanBeConsumed(false);
@@ -69,5 +68,38 @@ public class AttachePlugin implements Plugin<Project> {
 		project.getPluginManager().withPlugin("java-library", unused ->
 				project.getConfigurations().named("compileOnlyApi", configuration -> configuration.extendsFrom(attacheApi))
 		);
+	}
+
+	@NotNull
+	private static AttacheExtension attacheExtension(@NotNull Project project, @Nullable AttacheExtension inheritedDefaults) {
+		AttacheExtension existing = project.getExtensions().findByType(AttacheExtension.class);
+		if (existing != null) {
+			return existing;
+		}
+
+		if (inheritedDefaults != null && project != project.getRootProject()) {
+			return project.getExtensions().create(
+					ATTACHE_EXTENSION,
+					AttacheExtension.class,
+					project.getObjects(),
+					inheritedDefaults
+			);
+		}
+
+		return project.getExtensions().create(
+				ATTACHE_EXTENSION,
+				AttacheExtension.class,
+				project.getObjects()
+		);
+	}
+
+	@NotNull
+	private static AttacheExtension rootDefaults(@NotNull Project project) {
+		Project rootProject = project.getRootProject();
+		if (project == rootProject) {
+			return attacheExtension(rootProject, null);
+		}
+
+		return attacheExtension(rootProject, null);
 	}
 }

@@ -10,6 +10,7 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ProviderConvertible;
 import org.gradle.api.provider.SetProperty;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.inject.Inject;
 import java.util.Collections;
@@ -29,10 +30,25 @@ public class AttacheExtension {
 
 	@Inject
 	public AttacheExtension(@NotNull ObjectFactory objects) {
+		this(objects, null);
+	}
+
+	public AttacheExtension(@NotNull ObjectFactory objects, @Nullable AttacheExtension inheritedDefaults) {
 		this.objects = Objects.requireNonNull(objects, "objects");
-		this.transitive = objects.property(Boolean.class).convention(false);
-		this.addMavenCentral = objects.property(Boolean.class).convention(true);
-		this.repositories = objects.setProperty(String.class).convention(Collections.emptySet());
+		this.transitive = objects.property(Boolean.class);
+		this.addMavenCentral = objects.property(Boolean.class);
+		this.repositories = objects.setProperty(String.class);
+
+		if (inheritedDefaults != null) {
+			this.transitive.convention(inheritedDefaults.getTransitive());
+			this.addMavenCentral.convention(inheritedDefaults.getAddMavenCentral());
+			this.repositories.convention(Collections.emptySet());
+			this.repositories.addAll(inheritedDefaults.getRepositories());
+		} else {
+			this.transitive.convention(false);
+			this.addMavenCentral.convention(true);
+			this.repositories.convention(Collections.emptySet());
+		}
 	}
 
 	@NotNull

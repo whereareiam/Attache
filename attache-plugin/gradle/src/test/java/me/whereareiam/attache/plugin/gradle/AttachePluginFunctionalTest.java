@@ -291,6 +291,78 @@ class AttachePluginFunctionalTest {
 		));
 	}
 
+	@Test
+	void inheritsRootProjectDefaultsAndAllowsSubprojectOverrides() throws Exception {
+		writeFile("settings.gradle.kts", """
+				rootProject.name = "fixture"
+				include(":module")
+				
+				dependencyResolutionManagement {
+				    repositories {
+				        mavenCentral()
+				    }
+				
+				    versionCatalogs {
+				        create("libs") {
+				            library("gson", "com.google.code.gson:gson:2.13.2")
+				            library("commonsLang", "org.apache.commons:commons-lang3:3.17.0")
+				        }
+				    }
+				}
+				""");
+		writeFile("build.gradle.kts", """
+				import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension
+				
+				plugins {
+				    id("me.whereareiam.attache")
+				}
+				
+				extensions.configure<AttacheExtension>("attache") {
+				    addMavenCentral.set(false)
+				    transitive.set(true)
+				    repository("https://repo.example.com/shared")
+				}
+				""");
+		writeFile("module/build.gradle.kts", """
+				import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension
+				
+				plugins {
+				    java
+				    id("me.whereareiam.attache")
+				}
+				
+				dependencies {
+				    attache(libs.gson)
+				    attache(libs.commonsLang)
+				}
+				
+				extensions.configure<AttacheExtension>("attache") {
+				    library(libs.commonsLang) {
+				        transitive.set(false)
+				    }
+				
+				    repository("https://repo.example.com/module")
+				}
+				""");
+
+		BuildResult result = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments(":module:generateAttacheDescriptor")
+				.build();
+
+		assertEquals(SUCCESS, result.task(":module:generateAttacheDescriptor").getOutcome());
+
+		Path descriptor = tempDir.resolve("module/build/generated/resources/attache/META-INF/attache/module/attache.xml");
+		String xml = Files.readString(descriptor);
+		assertTrue(xml.contains("<repository>https://repo.example.com/shared</repository>"));
+		assertTrue(xml.contains("<repository>https://repo.example.com/module</repository>"));
+		assertTrue(xml.contains("add-maven-central=\"false\""));
+		assertFalse(xml.contains("<repository>https://repo1.maven.org/maven2/</repository>"));
+		assertTrue(libraryBlock(xml, "gson").contains("resolve-transitive-dependencies=\"true\""));
+		assertTrue(libraryBlock(xml, "commons-lang3").contains("resolve-transitive-dependencies=\"false\""));
+	}
+
 	private void writeFile(String relativePath, String content) throws Exception {
 		Path file = tempDir.resolve(relativePath);
 		Files.createDirectories(file.getParent());
