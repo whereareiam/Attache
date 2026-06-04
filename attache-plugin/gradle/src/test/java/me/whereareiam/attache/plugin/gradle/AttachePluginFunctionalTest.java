@@ -1,5 +1,6 @@
 package me.whereareiam.attache.plugin.gradle;
 
+import me.whereareiam.attache.Repositories;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
 import org.junit.jupiter.api.Test;
@@ -184,6 +185,56 @@ class AttachePluginFunctionalTest {
 		String xml = Files.readString(descriptor);
 		assertTrue(libraryBlock(xml, "gson").contains("resolve-transitive-dependencies=\"true\""));
 		assertTrue(libraryBlock(xml, "commons-lang3").contains("resolve-transitive-dependencies=\"false\""));
+	}
+
+	@Test
+	void addsMavenLocalRepositoryToDescriptor() throws Exception {
+		Path localRepository = tempDir.resolve("custom-m2/repository");
+
+		writeFile("settings.gradle.kts", """
+				rootProject.name = "fixture"
+				
+				dependencyResolutionManagement {
+				    repositories {
+				        mavenCentral()
+				    }
+				
+				    versionCatalogs {
+				        create("libs") {
+				            library("gson", "com.google.code.gson:gson:2.13.2")
+				        }
+				    }
+				}
+				""");
+
+		writeFile("build.gradle.kts", """
+				import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension
+				
+				plugins {
+				    `java-library`
+				    id("me.whereareiam.attache")
+				}
+				
+				dependencies {
+				    attache(libs.gson)
+				}
+				
+				extensions.configure<AttacheExtension>("attache") {
+				    mavenLocal()
+				}
+				""");
+
+		BuildResult result = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments("generateAttacheDescriptor", "-Dmaven.repo.local=" + localRepository)
+				.build();
+
+		assertEquals(SUCCESS, result.task(":generateAttacheDescriptor").getOutcome());
+
+		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.xml");
+		String xml = Files.readString(descriptor);
+		assertTrue(xml.contains("<repository>" + Repositories.mavenLocal(localRepository) + "</repository>"));
 	}
 
 	@Test

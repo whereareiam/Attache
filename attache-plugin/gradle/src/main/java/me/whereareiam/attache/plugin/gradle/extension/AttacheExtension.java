@@ -1,5 +1,6 @@
 package me.whereareiam.attache.plugin.gradle.extension;
 
+import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.plugin.gradle.AttacheNotation;
 import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
 import org.gradle.api.Action;
@@ -68,6 +69,10 @@ public class AttacheExtension {
 
 	public void repository(@NotNull String repository) {
 		repositories.add(repository);
+	}
+
+	public void mavenLocal() {
+		repositories.add(Repositories.mavenLocal());
 	}
 
 	@NotNull

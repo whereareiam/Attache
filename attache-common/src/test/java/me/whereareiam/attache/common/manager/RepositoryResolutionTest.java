@@ -147,6 +147,14 @@ class RepositoryResolutionTest {
 	}
 
 	@Test
+	void testAddMavenLocal() {
+		libraryManager.addMavenLocal();
+
+		Collection<String> repos = libraryManager.getRepositories();
+		assertTrue(repos.contains(Repositories.mavenLocal()));
+	}
+
+	@Test
 	void testResolveLibraryUrls() {
 		libraryManager.addMavenCentral();
 
@@ -217,4 +225,3 @@ class RepositoryResolutionTest {
 		}
 	}
 }
-

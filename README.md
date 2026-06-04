@@ -16,7 +16,7 @@ Attache allows you to download, cache, relocate, and load dependencies at runtim
 - **Runtime Dependency Loading**: Download and load Maven artifacts at runtime
 - **Relocation Support**: Relocate packages to avoid conflicts using jar-relocator
 - **Multiple Platforms**: Support for standalone Java applications, Bukkit-family plugins, BungeeCord plugins, and Velocity plugins
-- **Repository Management**: Support for Maven Central, custom repositories, and more
+- **Repository Management**: Support for Maven Central, Maven Local, custom repositories, and more
 - **Isolated Class Loading**: Load libraries in isolated class loaders when needed
 - **Checksum Verification**: Verify downloaded libraries with SHA-256 checksums
 
@@ -104,6 +104,7 @@ Use the `attache {}` block only for Attache-specific metadata:
 attache {
     transitive.set(true)
 
+    mavenLocal()
     repository("https://maven.whereareiam.me/release")
     repository("https://maven.whereareiam.me/development")
 
@@ -188,6 +189,7 @@ public class MyPlugin extends JavaPlugin {
 		PaperLibraryManager libraryManager = new PaperLibraryManager(this);
 
 		// Add repositories
+		libraryManager.addMavenLocal();
 		libraryManager.addMavenCentral();
 
 		// Load dependencies
@@ -290,6 +292,14 @@ class ExtraLibrariesLoader {
 ```java
 libraryManager.addRepository("https://repo.example.com/maven/");
 ```
+
+#### Maven Local
+
+```java
+libraryManager.addMavenLocal();
+```
+
+`addMavenLocal()` honors the `maven.repo.local` system property first and otherwise uses `~/.m2/repository`.
 
 #### Isolated Class Loading
 

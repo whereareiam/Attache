@@ -111,6 +111,14 @@ public interface LibraryManager {
 	void addJitPack();
 
 	/**
+	 * Adds the current Maven local repository.
+	 * <p>
+	 * This method honors the {@code maven.repo.local} system property first and
+	 * otherwise falls back to {@code ~/.m2/repository}.
+	 */
+	void addMavenLocal();
+
+	/**
 	 * Gets all configured repositories.
 	 *
 	 * @return collection of repository URLs

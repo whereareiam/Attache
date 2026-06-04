@@ -1,6 +1,7 @@
 package me.whereareiam.attache.common.integration;
 
 import me.whereareiam.attache.LoggingHelper;
+import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.type.Level;
@@ -159,6 +160,31 @@ class DownloadTest {
 		assertTrue(pathStr.contains(TEST_VERSION));
 	}
 
+	@Test
+	void testDownloadLibraryFromFileRepository() throws Exception {
+		Path repository = tempDir.resolve("m2/repository");
+		Path artifact = repository.resolve("com/example/local-lib/1.0.0/local-lib-1.0.0.jar");
+		byte[] expected = "local-jar".getBytes();
+
+		Files.createDirectories(artifact.getParent());
+		Files.write(artifact, expected);
+
+		libraryManager = new TestLibraryManager(tempDir);
+		libraryManager.addRepository(Repositories.mavenLocal(repository));
+
+		LibraryRequest library = LibraryRequest.builder()
+				.groupId("com.example")
+				.artifactId("local-lib")
+				.version("1.0.0")
+				.build();
+
+		Path downloadedFile = libraryManager.downloadLibrary(library);
+
+		assertNotNull(downloadedFile);
+		assertTrue(Files.exists(downloadedFile));
+		assertArrayEquals(expected, Files.readAllBytes(downloadedFile));
+	}
+
 	/**
 	 * Test implementation of BaseLibraryManager for integration testing.
 	 */
@@ -189,4 +215,3 @@ class DownloadTest {
 		}
 	}
 }
-

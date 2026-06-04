@@ -236,6 +236,11 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	}
 
 	@Override
+	public void addMavenLocal() {
+		addRepository(Repositories.mavenLocal());
+	}
+
+	@Override
 	@NotNull
 	public Collection<String> getRepositories() {
 		List<String> urls;
