@@ -22,6 +22,7 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -37,6 +38,7 @@ import java.util.Set;
 /**
  * Generates a module-scoped Attache descriptor fragment.
  */
+@DisableCachingByDefault(because = "Descriptor generation is inexpensive; local up-to-date checks suffice")
 public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 	@OutputDirectory
 	public abstract DirectoryProperty getOutputDirectory();

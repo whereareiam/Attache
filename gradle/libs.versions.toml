@@ -3,6 +3,10 @@
 # general
 lombok = "1.18.42"
 jar-relocator = "1.9"
+maven-resolver = "1.9.18"
+resolver-slf4j = "1.7.36"
+shadow = "9.3.0"
+toolkit = "dev-a4c6f1b"
 jetbrains-annotations = "26.0.2"
 junit = "6.0.0"
 
@@ -18,6 +22,13 @@ slf4j = "2.0.16"
 assertj = "3.27.6"
 
 [libraries]
+
+shadow = { group = "com.gradleup.shadow", name = "shadow-gradle-plugin", version.ref = "shadow" }
+toolkit-architecture = { group = "me.whereareiam.toolkit", name = "architecture", version.ref = "toolkit" }
+
+maven-resolver-impl = { group = "org.apache.maven.resolver", name = "maven-resolver-impl", version.ref = "maven-resolver" }
+maven-resolver-supplier = { group = "org.apache.maven.resolver", name = "maven-resolver-supplier", version.ref = "maven-resolver" }
+resolver-slf4j-nop = { group = "org.slf4j", name = "slf4j-nop", version.ref = "resolver-slf4j" }
 
 # general
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
@@ -40,3 +51,6 @@ spring-boot-configuration-processor = { group = "org.springframework.boot", name
 spring-boot-test = { group = "org.springframework.boot", name = "spring-boot-test", version.ref = "spring-boot" }
 slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
 assert4j-core = { group = "org.assertj", name = "assertj-core", version.ref = "assertj" }
+
+[plugins]
+toolkit-architecture = { id = "me.whereareiam.toolkit.architecture", version.ref = "toolkit" }

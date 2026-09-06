@@ -1,9 +1,11 @@
 package me.whereareiam.attache.common;
 
+import me.whereareiam.attache.common.util.ArtifactIntegrity;
 import me.whereareiam.attache.common.util.RelocationHelper;
 import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -11,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
+import java.util.HexFormat;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,16 +59,20 @@ final class RelocationCoordinator implements AutoCloseable {
 
 	@NotNull
 	private Path relocateNow(@NotNull Path in, @NotNull Path file, @NotNull Collection<RelocationRule> relocations) {
-		if (Files.exists(file))
-			return file;
-
 		Path tmpOut = null;
 		try {
+			String fingerprint = HexFormat.of().formatHex(ArtifactIntegrity.sha256(in));
+			Path marker = file.resolveSibling(file.getFileName() + ".source.sha256");
+			if (Files.exists(file) && Files.isRegularFile(marker)
+					&& Files.readString(marker).equals(fingerprint))
+				return file;
+
 			Files.createDirectories(file.getParent());
 			tmpOut = Files.createTempFile(file.getParent(), file.getFileName().toString(), ".tmp");
 
 			getRelocator().relocate(in, tmpOut, relocations);
 			Files.move(tmpOut, file, StandardCopyOption.REPLACE_EXISTING);
+			Files.writeString(marker, fingerprint);
 
 			if (libraryManager.getVerbosityMode() == VerbosityMode.VERBOSE)
 				libraryManager.getLogger().info("Relocations applied to " + in.getFileName());
@@ -74,12 +81,18 @@ final class RelocationCoordinator implements AutoCloseable {
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
 		} finally {
-			if (tmpOut != null) {
-				try {
-					Files.deleteIfExists(tmpOut);
-				} catch (IOException ignored) {
-				}
-			}
+			deleteTemporaryOutput(tmpOut);
+		}
+	}
+
+	private void deleteTemporaryOutput(@Nullable Path file) {
+		if (file == null)
+			return;
+
+		try {
+			Files.deleteIfExists(file);
+		} catch (IOException failure) {
+			libraryManager.getLogger().debug("Could not remove temporary relocation output " + file);
 		}
 	}
 

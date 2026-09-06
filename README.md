@@ -327,7 +327,7 @@ Library library = Library.builder()
 
 ## Credits
 
-**Attache is based on [Libby](https://github.com/AlessioDP/libby)** by AlessioDP and Byteflux.
+**Attache is based on [Libby](https://github.com/AlessioDP/libby) and [Libby Maven Resolver](https://github.com/AlessioDP/libby-maven-resolver)** by AlessioDP and Byteflux.
 
 We created Attache because Libby is no longer actively maintained, and we needed a maintained version with
 customizations. Special thanks to:

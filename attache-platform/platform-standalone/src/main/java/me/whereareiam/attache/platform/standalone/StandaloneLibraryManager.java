@@ -4,6 +4,7 @@ import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.classloader.SystemClassLoaderHelper;
 import me.whereareiam.attache.common.classloader.URLClassLoaderHelper;
+import me.whereareiam.attache.launcher.AttacheLauncher;
 import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
 
@@ -76,7 +77,7 @@ public class StandaloneLibraryManager extends BaseLibraryManager {
 			@NotNull ClassLoader classLoader,
 			@NotNull VerbosityMode verbosityMode
 	) {
-		super(loggingHelper, dataDirectory, directoryName);
+		super(loggingHelper, dataDirectory, directoryName, new AttacheLauncher());
 		this.targetLoader = Objects.requireNonNull(classLoader, "classLoader");
 		setVerbosityMode(Objects.requireNonNull(verbosityMode, "verbosityMode"));
 		this.addPathMethod = findPublicMethod(targetLoader, "addPath", Path.class);

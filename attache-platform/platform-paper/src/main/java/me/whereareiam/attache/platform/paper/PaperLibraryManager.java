@@ -4,6 +4,7 @@ import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
 import me.whereareiam.attache.common.classloader.URLClassLoaderHelper;
 import me.whereareiam.attache.common.logging.adapter.JDKLoggingHelper;
+import me.whereareiam.attache.launcher.AttacheLauncher;
 import me.whereareiam.attache.type.VerbosityMode;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
@@ -64,7 +65,7 @@ public class PaperLibraryManager extends BaseLibraryManager {
 			@NotNull LoggingHelper loggingHelper,
 			@NotNull VerbosityMode verbosityMode
 	) {
-		super(loggingHelper, plugin.getDataFolder().toPath(), directoryName);
+		super(loggingHelper, plugin.getDataFolder().toPath(), directoryName, new AttacheLauncher());
 		setVerbosityMode(requireNonNull(verbosityMode, "verbosityMode"));
 
 		ClassLoader cl = plugin.getClass().getClassLoader();

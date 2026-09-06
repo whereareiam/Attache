@@ -1,5 +1,6 @@
 package me.whereareiam.attache.common.util;
 
+import me.whereareiam.attache.model.ExcludedDependency;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.model.RelocationRule;
 import org.jetbrains.annotations.NotNull;
@@ -34,6 +35,10 @@ public final class LibraryHelper {
 				.urls(library.getUrls()) // Keep URLs as-is
 				.groupId(replaceWithDots(library.getGroupId()))
 				.artifactId(replaceWithDots(library.getArtifactId()))
+				.clearExcludedTransitiveDependencies()
+				.excludedTransitiveDependencies(library.getExcludedTransitiveDependencies().stream()
+						.map(excluded -> new ExcludedDependency(replaceWithDots(excluded.getGroupId()),
+								replaceWithDots(excluded.getArtifactId()))).toList())
 				.clearRepositories()
 				.repositories(normalizeRepositories(library.getRepositories()))
 				.clearFallbackRepositories()

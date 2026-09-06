@@ -1,21 +1,9 @@
 plugins {
-    id("attache.java-common")
+    id("library")
 }
+
+description = "Internal runtime for Attache - Runtime dependency management library"
 
 dependencies {
     api(projects.attacheApi)
-    compileOnly(libs.jar.relocator)
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            artifactId = "attache-common"
-            pom {
-                name.set("attache-common")
-                description.set("Internal runtime for Attache - Runtime dependency management library")
-            }
-        }
-    }
 }
