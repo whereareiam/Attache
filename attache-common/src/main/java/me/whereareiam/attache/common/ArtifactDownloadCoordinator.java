@@ -1,5 +1,6 @@
 package me.whereareiam.attache.common;
 
+import me.whereareiam.attache.common.util.ArtifactIntegrity;
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.type.VerbosityMode;
@@ -56,7 +57,10 @@ final class ArtifactDownloadCoordinator {
 	@NotNull
 	private Path downloadNow(@NotNull LibraryRequest normalizedLibrary, @NotNull Path file) throws IOException, NoSuchAlgorithmException {
 		if (Files.exists(file)) {
-			if (!normalizedLibrary.isSnapshot())
+			// A resolver-supplied local source may already occupy the destination, including snapshots.
+			boolean resolvedLocalFile = normalizedLibrary.getUrls().contains(file.toUri().toString());
+			if ((!normalizedLibrary.isSnapshot() || resolvedLocalFile) && (!normalizedLibrary.hasChecksum()
+					|| Arrays.equals(normalizedLibrary.getChecksum(), ArtifactIntegrity.sha256(file))))
 				return file;
 
 			Files.delete(file);

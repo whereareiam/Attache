@@ -4,6 +4,7 @@ import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.proxy.ProxyServer;
 import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.common.BaseLibraryManager;
+import me.whereareiam.attache.launcher.AttacheLauncher;
 import me.whereareiam.attache.type.Level;
 import me.whereareiam.attache.type.VerbosityMode;
 import org.jetbrains.annotations.NotNull;
@@ -96,7 +97,7 @@ public class VelocityLibraryManager extends BaseLibraryManager {
 			@NotNull String directoryName,
 			@NotNull VerbosityMode verbosityMode
 	) {
-		super(loggingHelper, dataDirectory, directoryName);
+		super(loggingHelper, dataDirectory, directoryName, new AttacheLauncher());
 		this.proxyServer = requireNonNull(proxyServer, "proxyServer");
 		this.pluginContainer = requireNonNull(pluginContainer, "pluginContainer");
 		this.descriptorClassLoader = this.pluginContainer.getInstance()

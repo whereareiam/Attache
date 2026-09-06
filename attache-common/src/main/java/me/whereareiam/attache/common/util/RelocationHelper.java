@@ -72,7 +72,7 @@ public class RelocationHelper {
 							.groupId("org{}ow2{}asm")
 							.artifactId("asm")
 							.version("9.9")
-							.repository("https://repo1.maven.org/maven2/")
+							.fallbackRepository("https://repo1.maven.org/maven2/")
 							.build()
 			));
 
@@ -81,7 +81,7 @@ public class RelocationHelper {
 							.groupId("org{}ow2{}asm")
 							.artifactId("asm-commons")
 							.version("9.9")
-							.repository("https://repo1.maven.org/maven2/")
+							.fallbackRepository("https://repo1.maven.org/maven2/")
 							.build()
 			));
 
@@ -91,8 +91,7 @@ public class RelocationHelper {
 							.groupId("me{}lucko")
 							.artifactId("jar-relocator")
 							.version("1.9")
-							.repository("https://maven.whereareiam.me/release/")
-							.resolveTransitiveDependencies(true)
+							.fallbackRepository("https://registry.whereareiam.me/maven/packages/")
 							.build()
 			));
 

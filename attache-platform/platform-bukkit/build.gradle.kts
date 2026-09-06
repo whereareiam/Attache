@@ -1,22 +1,13 @@
 plugins {
-    id("attache.java-common")
+    id("platform")
 }
+
+description = "Attache runtime dependency manager for Bukkit plugins"
 
 dependencies {
     api(projects.attacheApi)
-    implementation(projects.attacheCommon)
-    compileOnly(libs.bukkit)
-}
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            artifactId = "attache-bukkit"
-            pom {
-                name.set("attache-bukkit")
-                description.set("Attache runtime dependency manager for Bukkit plugins")
-            }
-        }
-    }
+    implementation(projects.attacheLauncher)
+
+    compileOnly(libs.bukkit)
 }

@@ -1,22 +1,13 @@
 plugins {
-    id("attache.java-common")
+    id("platform")
 }
+
+description = "Attache runtime dependency manager for Velocity plugins"
 
 dependencies {
     api(projects.attacheApi)
-    implementation(projects.attacheCommon)
-    compileOnly(libs.velocity)
-}
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            artifactId = "attache-velocity"
-            pom {
-                name.set("attache-velocity")
-                description.set("Attache runtime dependency manager for Velocity plugins")
-            }
-        }
-    }
+    implementation(projects.attacheLauncher)
+
+    compileOnly(libs.velocity)
 }

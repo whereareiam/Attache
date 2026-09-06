@@ -1,4 +1,4 @@
-package me.whereareiam.attache.common.integration;
+package me.whereareiam.attache.launcher;
 
 import lombok.Getter;
 import me.whereareiam.attache.LoggingHelper;
@@ -231,7 +231,7 @@ class TransitiveDependencyTest {
 		private final java.util.Set<Path> addedPaths = new java.util.HashSet<>();
 
 		public TestLibraryManager(Path tempDir) {
-			super(new TestLoggingHelper(), tempDir, "lib");
+			super(new TestLoggingHelper(), tempDir, "lib", new AttacheLauncher());
 		}
 
 		@Override

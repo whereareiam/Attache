@@ -10,7 +10,8 @@ import me.whereareiam.attache.common.descriptor.ClasspathDescriptorLoader;
 import me.whereareiam.attache.common.loader.ParallelLibraryLoader;
 import me.whereareiam.attache.common.loader.SequentialLibraryLoader;
 import me.whereareiam.attache.common.logging.Logger;
-import me.whereareiam.attache.common.transitive.TransitiveDependencyHelper;
+import me.whereareiam.attache.resolution.DependencyResolver;
+import me.whereareiam.attache.resolution.DependencyResolverFactory;
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.descriptor.AttacheDescriptorLibrary;
 import me.whereareiam.attache.model.LibraryRequest;
@@ -70,7 +71,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	/**
 	 * Lazily initialized helper for transitive dependencies resolution
 	 */
-	protected TransitiveDependencyHelper transitiveDependencyHelper;
+	private @Nullable DependencyResolver dependencyResolver;
+	private final @NotNull DependencyResolverFactory resolverFactory;
 
 	/**
 	 * Global isolated class loader for libraries
@@ -115,7 +117,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	private boolean classpathDescriptorsLoaded;
 
 	/**
-	 * Creates a new library manager.
+	 * Creates a library manager for direct dependencies. Supply a resolver factory
+	 * through the other constructor when transitive resolution is needed.
 	 *
 	 * @param loggingHelper logging adapter
 	 * @param dataDirectory data directory
@@ -126,6 +129,26 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 			@NotNull Path dataDirectory,
 			@NotNull String directoryName
 	) {
+		this(loggingHelper, dataDirectory, directoryName, manager -> {
+			throw new IllegalStateException("Transitive resolution requires a DependencyResolverFactory");
+		});
+	}
+
+	/**
+	 * Creates a manager with a lazily initialized transitive dependency resolver.
+	 *
+	 * @param loggingHelper logging adapter
+	 * @param dataDirectory data directory
+	 * @param directoryName download directory name
+	 * @param resolverFactory factory called on the first transitive resolution
+	 */
+	protected BaseLibraryManager(
+			@NotNull LoggingHelper loggingHelper,
+			@NotNull Path dataDirectory,
+			@NotNull String directoryName,
+			@NotNull DependencyResolverFactory resolverFactory
+	) {
+		this.resolverFactory = resolverFactory;
 		this.loggingHelper = requireNonNull(loggingHelper, "loggingHelper");
 		this.saveDirectory = requireNonNull(dataDirectory, "dataDirectory").toAbsolutePath().resolve(requireNonNull(directoryName, "directoryName"));
 		this.logger = new Logger(loggingHelper);
@@ -339,9 +362,9 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 		String groupId = LibraryHelper.replaceWithDots(request.getGroupId());
 		String artifactId = LibraryHelper.replaceWithDots(request.getArtifactId());
-		String resource = "META-INF/maven/" + groupId.replace('.', '/') + "/" + artifactId + "/pom.properties";
+		String resource = "META-INF/maven/" + groupId + "/" + artifactId + "/pom.properties";
 
-		ClassLoader classLoader = getClass().getClassLoader();
+		ClassLoader classLoader = getDescriptorClassLoader();
 		return isResourcePresent(classLoader, resource) ? resource : null;
 	}
 
@@ -354,7 +377,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		if (fileName == null)
 			return null;
 
-		ClassLoader classLoader = getClass().getClassLoader();
+		ClassLoader classLoader = getDescriptorClassLoader();
 		String jarPath = findMatchingJarPath(classLoader, fileName);
 		if (jarPath != null)
 			return jarPath;
@@ -627,12 +650,24 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		requireNonNull(library, "library");
 
 		synchronized (this) {
-			if (transitiveDependencyHelper == null)
-				transitiveDependencyHelper = new TransitiveDependencyHelper(this, saveDirectory);
+			if (dependencyResolver == null)
+				dependencyResolver = resolverFactory.create(this);
 		}
 
-		for (LibraryRequest transitiveLibrary : transitiveDependencyHelper.findTransitiveLibraries(library))
-			loadLibrary(transitiveLibrary);
+		LibraryRequest normalized = LibraryHelper.normalize(library);
+		for (var artifact : dependencyResolver.resolve(normalized, resolveRepositories(normalized))) {
+			LibraryRequest request = LibraryRequest.builder()
+					.groupId(artifact.getGroupId())
+					.artifactId(artifact.getArtifactId())
+					.version(artifact.getBaseVersion())
+					.classifier(artifact.getClassifier())
+					.url(artifact.getFile().toUri().toString())
+					.isolated(normalized.isIsolated())
+					.loader(normalized.getLoader())
+					.relocations(normalized.getRelocations())
+					.build();
+			loadLibrary(request);
+		}
 	}
 
 	@Override
@@ -896,11 +931,11 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	public void close() {
 		relocationCoordinator.close();
 
-		if (transitiveDependencyHelper != null) {
+		if (dependencyResolver != null) {
 			try {
-				transitiveDependencyHelper.close();
+				dependencyResolver.close();
 			} catch (Exception e) {
-				logger.error("Failed to close transitive dependency helper", e);
+				logger.error("Failed to close dependency resolver", e);
 			}
 		}
 
