@@ -54,3 +54,4 @@ assert4j-core = { group = "org.assertj", name = "assertj-core", version.ref = "a
 
 [plugins]
 toolkit-architecture = { id = "me.whereareiam.toolkit.architecture", version.ref = "toolkit" }
+toolkit-versioning = { id = "me.whereareiam.toolkit.versioning", version.ref = "toolkit" }

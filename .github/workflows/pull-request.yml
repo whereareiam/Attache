@@ -1,0 +1,26 @@
+name: Pull request
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  verify:
+    environment: pr-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build and test
+        uses: ./.github/actions/gradle-build
+        with:
+          gradle-command: ./gradlew --no-daemon build
+          java-version: '25'
+          test-results-artifact-name: attache-pr-test-reports
+          skip-test-reporter-on-forks: 'true'
