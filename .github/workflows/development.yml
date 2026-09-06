@@ -1,87 +1,48 @@
 name: Development build
 
 on:
-  push:
-    branches:
-      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  id-token: write
+
+concurrency:
+  group: attache-development
+  cancel-in-progress: false
 
 jobs:
-  prepare:
+  build-test-publish:
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
-    outputs:
-      name: ${{ steps.details.outputs.name }}
-      version: ${{ steps.details.outputs.version }}
+    timeout-minutes: 35
+    env:
+      VERSION: dev-${{ github.sha }}-SNAPSHOT
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Extract project details
-        id: details
-        run: |
-          echo "name=$(grep 'rootProject.name' settings.gradle.kts | awk -F "=" '{print $2}' | tr -d ' \"\n')" >> $GITHUB_OUTPUT
-          echo "version=${GITHUB_REF##*/}-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
-  test:
-    needs: prepare
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/checkout@v5
         with:
-          java-version: 25
-          distribution: 'temurin'
-          check-latest: true
+          ref: dev
 
-      - name: Run tests
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: ./gradlew test
+      - name: Build and test once
+        uses: ./.github/actions/gradle-build
+        with:
+          gradle-command: ./gradlew --no-daemon build
+          java-version: '25'
+          test-results-artifact-name: attache-development-${{ github.sha }}
 
-      - name: Upload test results
+      - name: Upload build artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: Test results
-          path: |
-            **/build/test-results/test/*.xml
-            **/build/reports/tests/test/
+          name: attache-development-${{ github.sha }}-jars
+          path: '**/build/libs/*.jar'
+          if-no-files-found: error
 
-      - name: Test summary
-        if: always()
-        run: |
-          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-          find . -name "TEST-*.xml" -type f | while read file; do
-            suite=$(grep -oP 'name="\K[^"]+' "$file" | head -1)
-            tests=$(grep -oP 'tests="\K[^"]+' "$file" | head -1)
-            failures=$(grep -oP 'failures="\K[^"]+' "$file" | head -1)
-            errors=$(grep -oP 'errors="\K[^"]+' "$file" | head -1)
-            echo "- **$suite**: $tests tests, $failures failures, $errors errors" >> $GITHUB_STEP_SUMMARY
-          done
-
-  publish:
-    needs: prepare
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
+      - name: Publish Maven modules
+        uses: whereareiam/devops/actions/registry/maven-publish@v2
         with:
-          java-version: 25
-          distribution: 'temurin'
-          check-latest: true
-
-      - name: Publish to Maven repository
-        env:
-          PUBLISH_USER: ${{ secrets.PUBLISH_USER }}
-          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-          PUBLISH_REALM: development
-        run: ./gradlew --no-daemon publish
+          visibility: public
+          repository: packages
+          command: ./gradlew --no-daemon publish

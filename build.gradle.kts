@@ -1,10 +1,14 @@
 plugins {
     alias(libs.plugins.toolkit.architecture)
+    alias(libs.plugins.toolkit.versioning)
 }
 
 allprojects {
     group = "me.whereareiam"
-    version = providers.environmentVariable("VERSION").orElse("dev").get()
+}
+
+gradle.projectsEvaluated {
+    allprojects { version = rootProject.version }
 }
 
 defaultTasks("build")
