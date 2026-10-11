@@ -1,48 +1,33 @@
 name: Development build
+run-name: "Development build of ${{ github.ref_name }}"
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  checks: write
-  id-token: write
-
 concurrency:
-  group: attache-development
+  group: development-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  build-test-publish:
-    if: github.ref == 'refs/heads/dev'
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    env:
-      VERSION: dev-${{ github.sha }}-SNAPSHOT
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          ref: dev
+  verify:
+    name: Verify
+    permissions:
+      contents: read
+      checks: write
+    uses: ./.github/workflows/reusable-verify.yml
+    with:
+      ref: ${{ github.sha }}
 
-      - name: Build and test once
-        uses: ./.github/actions/gradle-build
-        with:
-          gradle-command: ./gradlew --no-daemon build
-          java-version: '25'
-          test-results-artifact-name: attache-development-${{ github.sha }}
-
-      - name: Upload build artifacts
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: attache-development-${{ github.sha }}-jars
-          path: '**/build/libs/*.jar'
-          if-no-files-found: error
-
-      - name: Publish Maven modules
-        uses: whereareiam/devops/actions/registry/maven-publish@v2
-        with:
-          visibility: public
-          repository: packages
-          command: ./gradlew --no-daemon publish
+  publish:
+    name: Publish
+    needs: verify
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-publish.yml
+    with:
+      commit: ${{ needs.verify.outputs.commit }}
+      version: ${{ needs.verify.outputs.version }}

@@ -1,55 +1,82 @@
-name: Release build
+name: Release
+run-name: "Release ${{ github.event.release.tag_name }}"
 
 on:
   release:
     types: [published]
 
-permissions:
-  contents: write
-  checks: write
-  id-token: write
-
 concurrency:
-  group: attache-release
+  group: release-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  build-test-publish:
+  resolve:
+    name: Resolve release
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     steps:
-      - name: Checkout release
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.release.tag_name }}
-
-      - name: Resolve release version
-        id: version
-        shell: bash
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          test -n "${version}"
-          echo "VERSION=${version}" >> "$GITHUB_ENV"
-
-      - name: Build and test once
-        uses: ./.github/actions/gradle-build
-        with:
-          gradle-command: ./gradlew --no-daemon build
-          java-version: '25'
-          test-results-artifact-name: attache-release-${{ github.event.release.tag_name }}
-
-      - name: Publish Maven modules
-        uses: whereareiam/devops/actions/registry/maven-publish@v2
-        with:
-          visibility: public
-          repository: packages
-          command: ./gradlew --no-daemon publish
-
-      - name: Add build artifacts to release notes
+      - name: Read release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          mapfile -t artifacts < <(find . -path '*/build/libs/*.jar' -type f ! -name '*plain*.jar' ! -name '*test*.jar' -print)
-          ((${#artifacts[@]} > 0))
-          gh release upload "$RELEASE_TAG" "${artifacts[@]}" --clobber
+          set -euo pipefail
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
+          if jq -e '(.body // "") | contains("[Short subtitle]") or contains("[1-2 sentence summary")' <<<"$release" >/dev/null; then
+            echo "::error::Release $TAG still has the subtitle or summary placeholder of the draft; fill in .github/release-notes.md or edit the release, then publish again."
+            exit 1
+          fi
+          echo "tag=$(jq -r '.tag_name' <<<"$release")" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify
+    needs: resolve
+    permissions:
+      contents: read
+      checks: write
+    uses: ./.github/workflows/reusable-verify.yml
+    with:
+      ref: ${{ needs.resolve.outputs.tag }}
+      version: ${{ needs.resolve.outputs.tag }}
+      artifacts: true
+
+  publish:
+    name: Publish
+    needs: verify
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-publish.yml
+    with:
+      commit: ${{ needs.verify.outputs.commit }}
+      version: ${{ needs.verify.outputs.version }}
+
+  attach:
+    name: Attach jars to the release
+    needs: [resolve, verify, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: attache-${{ needs.verify.outputs.version }}
+          path: jars
+
+      - name: Upload jars
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find jars -name '*.jar' | sort)
+          duplicates="$(printf '%s\n' "${jars[@]##*/}" | sort | uniq -d)"
+          [[ -z "$duplicates" ]] || { echo "Duplicate jar names: $duplicates" >&2; exit 1; }
+          gh release upload "$TAG" "${jars[@]}" --clobber --repo "$GITHUB_REPOSITORY"
