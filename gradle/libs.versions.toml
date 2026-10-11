@@ -18,7 +18,7 @@ velocity = "3.4.0-SNAPSHOT"
 
 # platforms apis -> spring
 spring-boot = "4.0.1"
-slf4j = "2.0.16"
+slf4j = "2.0.20"
 assertj = "3.27.6"
 
 [libraries]
