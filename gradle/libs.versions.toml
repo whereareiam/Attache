@@ -3,7 +3,7 @@
 # general
 lombok = "1.18.42"
 jar-relocator = "1.9"
-maven-resolver = "1.9.18"
+maven-resolver = "1.9.27"
 resolver-slf4j = "1.7.36"
 shadow = "9.3.0"
 toolkit = "dev-a4c6f1b"
