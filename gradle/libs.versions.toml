@@ -17,7 +17,7 @@ paper = "26.1.2.build.63-stable"
 velocity = "3.4.0-SNAPSHOT"
 
 # platforms apis -> spring
-spring-boot = "4.0.1"
+spring-boot = "4.1.1"
 slf4j = "2.0.16"
 assertj = "3.27.6"
 
