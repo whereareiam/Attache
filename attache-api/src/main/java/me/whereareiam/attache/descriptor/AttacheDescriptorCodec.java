@@ -132,6 +132,7 @@ public final class AttacheDescriptorCodec {
 		appendAttribute(xml, "isolated", Boolean.toString(library.isIsolated()));
 		appendAttribute(xml, "loader", library.getLoader());
 		appendAttribute(xml, "resolve-transitive-dependencies", Boolean.toString(library.isResolveTransitiveDependencies()));
+		appendAttribute(xml, "group", library.getGroup());
 
 		if (library.getUrls().isEmpty()
 				&& library.getRepositories().isEmpty()
@@ -235,6 +236,7 @@ public final class AttacheDescriptorCodec {
 			library.setIsolated(readBooleanAttribute(libraryElement, "isolated", false));
 			library.setLoader(readAttribute(libraryElement, "loader"));
 			library.setResolveTransitiveDependencies(readBooleanAttribute(libraryElement, "resolve-transitive-dependencies", false));
+			library.setGroup(readAttribute(libraryElement, "group"));
 
 			readValueElements(libraryElement, "urls", "url", library.getUrls());
 			readValueElements(libraryElement, "repositories", "repository", library.getRepositories());

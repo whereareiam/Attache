@@ -7,6 +7,7 @@ import me.whereareiam.attache.LoggingHelper;
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.common.classloader.IsolatedClassLoader;
 import me.whereareiam.attache.common.descriptor.ClasspathDescriptorLoader;
+import me.whereareiam.attache.common.descriptor.DescriptorCatalog;
 import me.whereareiam.attache.common.loader.ParallelLibraryLoader;
 import me.whereareiam.attache.common.loader.SequentialLibraryLoader;
 import me.whereareiam.attache.common.logging.Logger;
@@ -114,7 +115,9 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	private final LibraryBatchLoader libraryBatchLoader;
 	private final LibraryLoadMode libraryLoadMode;
 	private final ClasspathDescriptorLoader classpathDescriptorLoader = new ClasspathDescriptorLoader();
-	private boolean classpathDescriptorsLoaded;
+	private final Set<String> loadedDescriptorLibraries = new HashSet<>();
+	private DescriptorCatalog descriptorCatalog;
+	private boolean defaultDescriptorLibrariesLoaded;
 
 	/**
 	 * Creates a library manager for direct dependencies. Supply a resolver factory
@@ -834,68 +837,64 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 
 	@Override
 	public final synchronized void loadDescriptors() {
-		if (classpathDescriptorsLoaded) {
+		if (defaultDescriptorLibrariesLoaded) return;
+
+		logDescriptorProgress("Loading declared libraries");
+		DescriptorCatalog catalog = descriptorCatalog();
+		if (catalog.isEmpty()) {
+			logDescriptorProgress("No declared libraries found");
+			defaultDescriptorLibrariesLoaded = true;
 			return;
 		}
 
-		if (verbosityMode == VerbosityMode.VERBOSE || verbosityMode == VerbosityMode.SUMMARY) {
-			logger.info("Loading declared libraries");
+		loadDescriptorLibraries(catalog.getDefaultLibraries());
+		defaultDescriptorLibrariesLoaded = true;
+	}
+
+	@Override
+	public final synchronized void loadGroups(@NotNull String... groups) {
+		Set<String> requested = new LinkedHashSet<>(List.of(requireNonNull(groups, "groups")));
+		if (requested.isEmpty()) return;
+
+		DescriptorCatalog catalog = descriptorCatalog();
+		Set<String> unknown = new LinkedHashSet<>(requested);
+		unknown.removeAll(catalog.getGroups());
+		if (!unknown.isEmpty()) {
+			throw new IllegalArgumentException("No Attache descriptor declares the group(s) " + String.join(", ", unknown)
+					+ "; declared groups: " + (catalog.getGroups().isEmpty() ? "none" : String.join(", ", catalog.getGroups())));
 		}
 
-		List<ClasspathDescriptorLoader.LoadedDescriptorFragment> fragments = classpathDescriptorLoader.load(
-				getDescriptorClassLoader(),
-				getClass()
-		);
-		if (fragments.isEmpty()) {
-			if (verbosityMode == VerbosityMode.VERBOSE || verbosityMode == VerbosityMode.SUMMARY) {
-				logger.info("No declared libraries found");
-			}
-			classpathDescriptorsLoaded = true;
-			return;
+		logDescriptorProgress("Loading declared libraries of group(s) " + String.join(", ", requested));
+		loadDescriptorLibraries(catalog.getGroupLibraries(requested));
+	}
+
+	@NotNull
+	private DescriptorCatalog descriptorCatalog() {
+		if (descriptorCatalog == null) {
+			descriptorCatalog = DescriptorCatalog.merge(classpathDescriptorLoader.load(getDescriptorClassLoader(), getClass()));
+			if (descriptorCatalog.isAddMavenCentral()) addMavenCentral();
+			descriptorCatalog.getRepositories().forEach(this::addRepository);
 		}
 
-		boolean addMavenCentral = false;
-		LinkedHashSet<String> fragmentRepositories = new LinkedHashSet<>();
-		LinkedHashMap<String, DescriptorLibraryOrigin> libraries = new LinkedHashMap<>();
+		return descriptorCatalog;
+	}
 
-		for (ClasspathDescriptorLoader.LoadedDescriptorFragment loaded : fragments) {
-			if (loaded.fragment().isAddMavenCentral()) {
-				addMavenCentral = true;
-			}
-			fragmentRepositories.addAll(loaded.fragment().getRepositories());
-
-			for (AttacheDescriptorLibrary library : loaded.fragment().getLibraries()) {
-				String key = library.coordinatesKey();
-				DescriptorLibraryOrigin existing = libraries.get(key);
-				if (existing == null) {
-					libraries.put(key, new DescriptorLibraryOrigin(library, loaded.location()));
-					continue;
-				}
-
-				if (!existing.library.sameDefinition(library)) {
-					throw new IllegalStateException("Conflicting Attache descriptor definitions for " + key
-							+ " in " + existing.location + " and " + loaded.location());
-				}
-			}
-		}
-
-		if (addMavenCentral) {
-			addMavenCentral();
-		}
-		fragmentRepositories.forEach(this::addRepository);
-
-		if (!libraries.isEmpty()) {
-			List<LibraryRequest> requests = libraries.values().stream()
-					.map(origin -> origin.library.toLibraryRequest())
-					.toList();
-			loadLibraries(requests);
-		}
+	private void loadDescriptorLibraries(@NotNull List<AttacheDescriptorLibrary> libraries) {
+		List<LibraryRequest> requests = libraries.stream()
+				.filter(library -> loadedDescriptorLibraries.add(library.coordinatesKey()))
+				.map(AttacheDescriptorLibrary::toLibraryRequest)
+				.toList();
+		if (!requests.isEmpty()) loadLibraries(requests);
 
 		if (verbosityMode == VerbosityMode.VERBOSE) {
-			logger.info("Finished loading " + libraries.size() + " libraries");
+			logger.info("Finished loading " + requests.size() + " libraries");
 		}
+	}
 
-		classpathDescriptorsLoaded = true;
+	private void logDescriptorProgress(@NotNull String message) {
+		if (verbosityMode == VerbosityMode.VERBOSE || verbosityMode == VerbosityMode.SUMMARY) {
+			logger.info(message);
+		}
 	}
 
 	/**
@@ -956,16 +955,6 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		}
 
 		isolatedLibraries.clear();
-	}
-
-	private static final class DescriptorLibraryOrigin {
-		private final AttacheDescriptorLibrary library;
-		private final String location;
-
-		private DescriptorLibraryOrigin(@NotNull AttacheDescriptorLibrary library, @NotNull String location) {
-			this.library = library;
-			this.location = location;
-		}
 	}
 
 	public static final class DownloadAttempt {

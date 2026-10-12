@@ -24,7 +24,7 @@ public class AttachePlugin implements Plugin<Project> {
 	@Override
 	public void apply(Project project) {
 		AttacheExtension rootDefaults = rootDefaults(project);
-		attacheExtension(project, rootDefaults);
+		AttacheExtension extension = attacheExtension(project, rootDefaults);
 
 		Configuration attacheApi = project.getConfigurations().create(ATTACHE_API_CONFIGURATION, configuration -> {
 			configuration.setCanBeConsumed(false);
@@ -42,11 +42,26 @@ public class AttachePlugin implements Plugin<Project> {
 			configuration.setCanBeResolved(false);
 			configuration.setTransitive(false);
 		});
-		project.getConfigurations().create(ATTACHE_MANIFEST_CONFIGURATION, configuration -> {
+		Configuration attacheManifest = project.getConfigurations().create(ATTACHE_MANIFEST_CONFIGURATION, configuration -> {
 			configuration.setCanBeConsumed(false);
 			configuration.setCanBeResolved(true);
 			configuration.setTransitive(false);
 			configuration.extendsFrom(attache, attacheOnly);
+		});
+
+		extension.getGroups().all(group -> {
+			Configuration attacheGroup = project.getConfigurations().create(groupConfigurationName(group.getName()), configuration -> {
+				configuration.setCanBeConsumed(false);
+				configuration.setCanBeResolved(false);
+				configuration.setTransitive(false);
+				configuration.getDependencies().addAllLater(group.getDependencies().map(notations -> notations.stream()
+						.map(notation -> project.getDependencies().create(notation))
+						.toList()));
+			});
+			attacheManifest.extendsFrom(attacheGroup);
+			project.getPluginManager().withPlugin("java-base", unused ->
+					project.getConfigurations().named(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME, configuration -> configuration.extendsFrom(attacheGroup))
+			);
 		});
 
 		project.getPluginManager().withPlugin("java-base", unused -> {
@@ -68,6 +83,24 @@ public class AttachePlugin implements Plugin<Project> {
 		project.getPluginManager().withPlugin("java-library", unused ->
 				project.getConfigurations().named("compileOnlyApi", configuration -> configuration.extendsFrom(attacheApi))
 		);
+	}
+
+	/**
+	 * Gets the name of the configuration that holds the dependencies of an Attache group.
+	 *
+	 * @param groupName the group name
+	 * @return the configuration name, such as {@code attacheSqlite} for {@code sqlite}
+	 */
+	@NotNull
+	public static String groupConfigurationName(@NotNull String groupName) {
+		StringBuilder name = new StringBuilder(ATTACHE_CONFIGURATION);
+		for (String part : groupName.split("[._-]")) {
+			if (part.isEmpty()) continue;
+
+			name.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+		}
+
+		return name.toString();
 	}
 
 	@NotNull

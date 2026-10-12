@@ -4,6 +4,7 @@ import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.plugin.gradle.AttacheNotation;
 import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
 import org.gradle.api.Action;
+import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.artifacts.MinimalExternalModuleDependency;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
@@ -28,6 +29,7 @@ public class AttacheExtension {
 	private final Property<Boolean> addMavenCentral;
 	private final SetProperty<String> repositories;
 	private final Map<String, AttacheLibraryMetadata> libraries = new LinkedHashMap<>();
+	private final NamedDomainObjectContainer<AttacheGroup> groups;
 
 	@Inject
 	public AttacheExtension(@NotNull ObjectFactory objects) {
@@ -39,6 +41,7 @@ public class AttacheExtension {
 		this.transitive = objects.property(Boolean.class);
 		this.addMavenCentral = objects.property(Boolean.class);
 		this.repositories = objects.setProperty(String.class);
+		this.groups = objects.domainObjectContainer(AttacheGroup.class, name -> new AttacheGroup(objects, name, this));
 
 		if (inheritedDefaults != null) {
 			this.transitive.convention(inheritedDefaults.getTransitive());
@@ -112,6 +115,25 @@ public class AttacheExtension {
 	@NotNull
 	public AttacheLibraryMetadata library(@NotNull ProviderConvertible<? extends MinimalExternalModuleDependency> dependencyProvider) {
 		return library(Objects.requireNonNull(dependencyProvider, "dependencyProvider").asProvider());
+	}
+
+	/**
+	 * Declares or configures a group of libraries that the runtime loads only through {@code loadGroups}.
+	 *
+	 * @param name   the group name
+	 * @param action configures the libraries of the group
+	 * @return the group
+	 */
+	@NotNull
+	public AttacheGroup group(@NotNull String name, @NotNull Action<? super AttacheGroup> action) {
+		AttacheGroup group = groups.maybeCreate(name);
+		action.execute(group);
+		return group;
+	}
+
+	@NotNull
+	public NamedDomainObjectContainer<AttacheGroup> getGroups() {
+		return groups;
 	}
 
 	@NotNull

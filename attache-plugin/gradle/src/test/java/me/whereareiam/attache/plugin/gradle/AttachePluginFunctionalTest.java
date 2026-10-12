@@ -106,6 +106,101 @@ class AttachePluginFunctionalTest {
 	}
 
 	@Test
+	void writesGroupedLibrariesWithTheirGroup() throws Exception {
+		writeFile("settings.gradle.kts", """
+				rootProject.name = "fixture"
+				
+				dependencyResolutionManagement {
+				    repositories {
+				        mavenCentral()
+				    }
+				
+				    versionCatalogs {
+				        create("libs") {
+				            library("gson", "com.google.code.gson:gson:2.13.2")
+				            library("commonsLang", "org.apache.commons:commons-lang3:3.17.0")
+				            library("commonsText", "org.apache.commons:commons-text:1.13.0")
+				        }
+				    }
+				}
+				""");
+
+		writeFile("build.gradle.kts", """
+				plugins {
+				    java
+				    id("me.whereareiam.attache")
+				}
+				
+				dependencies {
+				    attache(libs.gson)
+				}
+				
+				attache {
+				    group("text-tools") {
+				        library(libs.commonsText) {
+				            relocate("org.apache.commons.text", "example.libs.text")
+				        }
+				        library("org.apache.commons:commons-lang3:3.17.0")
+				    }
+				
+				    group("lang") {
+				        library(libs.commonsLang)
+				        library(libs.gson)
+				    }
+				}
+				
+				tasks.register("verifyAttacheGroupScopes") {
+				    doLast {
+				        val compileOnlyNames = configurations.compileOnly.get().allDependencies.map { it.name }.toSet()
+				        check("commons-text" in compileOnlyNames)
+				        check("commons-lang3" in compileOnlyNames)
+				        check(configurations.findByName("attacheTextTools") != null)
+				    }
+				}
+				""");
+
+		BuildResult result = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments("generateAttacheDescriptor", "verifyAttacheGroupScopes")
+				.build();
+
+		assertEquals(SUCCESS, result.task(":generateAttacheDescriptor").getOutcome());
+		assertEquals(SUCCESS, result.task(":verifyAttacheGroupScopes").getOutcome());
+
+		String xml = Files.readString(tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.xml"));
+		assertFalse(libraryBlock(xml, "gson").contains("group="));
+		assertEquals(1, xml.split("artifact-id=\"gson\"", -1).length - 1);
+		assertTrue(libraryBlock(xml, "commons-text").contains("group=\"text-tools\""));
+		assertTrue(libraryBlock(xml, "commons-text").contains("relocated-pattern=\"example.libs.text\""));
+		assertTrue(xml.contains("artifact-id=\"commons-lang3\" version=\"3.17.0\" skip-if-present=\"true\" isolated=\"false\" resolve-transitive-dependencies=\"false\" group=\"text-tools\""));
+		assertTrue(xml.contains("artifact-id=\"commons-lang3\" version=\"3.17.0\" skip-if-present=\"true\" isolated=\"false\" resolve-transitive-dependencies=\"false\" group=\"lang\""));
+	}
+
+	@Test
+	void rejectsInvalidGroupName() throws Exception {
+		writeFile("settings.gradle.kts", "rootProject.name = \"fixture\"\n");
+		writeFile("build.gradle.kts", """
+				plugins {
+				    java
+				    id("me.whereareiam.attache")
+				}
+				
+				attache {
+				    group("my group") {}
+				}
+				""");
+
+		BuildResult result = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments("generateAttacheDescriptor")
+				.buildAndFail();
+
+		assertTrue(result.getOutput().contains("Attache group name must start with a letter or digit"));
+	}
+
+	@Test
 	void rejectsUnsupportedProjectDependencies() throws Exception {
 		writeFile("settings.gradle.kts", """
 				rootProject.name = "fixture"
