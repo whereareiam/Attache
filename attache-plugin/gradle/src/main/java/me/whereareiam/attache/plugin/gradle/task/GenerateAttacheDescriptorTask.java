@@ -8,6 +8,7 @@ import me.whereareiam.attache.model.RelocationRule;
 import me.whereareiam.attache.plugin.gradle.AttachePlugin;
 import me.whereareiam.attache.plugin.gradle.AttacheNotation;
 import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension;
+import me.whereareiam.attache.plugin.gradle.extension.AttacheGroup;
 import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
@@ -109,9 +110,20 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		validateDependencies(attache);
 		validateDependencies(attacheOnly);
 
-		LinkedHashSet<String> dependencyKeys = new LinkedHashSet<>();
-		collectDependencyKeys(attache, dependencyKeys);
-		collectDependencyKeys(attacheOnly, dependencyKeys);
+		LinkedHashSet<String> defaultKeys = new LinkedHashSet<>();
+		collectDependencyKeys(attache, defaultKeys);
+		collectDependencyKeys(attacheOnly, defaultKeys);
+
+		LinkedHashMap<String, Set<String>> groupKeys = new LinkedHashMap<>();
+		for (AttacheGroup group : extension.getGroups()) {
+			Configuration configuration = project.getConfigurations().getByName(AttachePlugin.groupConfigurationName(group.getName()));
+			validateDependencies(configuration);
+
+			LinkedHashSet<String> keys = new LinkedHashSet<>();
+			collectDependencyKeys(configuration, keys);
+			keys.removeAll(defaultKeys);
+			groupKeys.put(group.getName(), keys);
+		}
 
 		Map<String, ResolvedArtifact> resolvedArtifacts = resolveArtifacts(manifest);
 
@@ -120,51 +132,69 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		fragment.setProjectName(project.getName());
 		fragment.setAddMavenCentral(extension.getAddMavenCentral().getOrElse(true));
 		fragment.getRepositories().addAll(extension.getRepositories().getOrElse(Set.of()));
-		boolean defaultTransitive = extension.getTransitive().getOrElse(false);
 
-		for (String key : dependencyKeys) {
-			ResolvedArtifact artifact = resolvedArtifacts.get(key);
-			if (artifact == null) {
-				throw new GradleException("No resolved artifact found for Attache dependency " + key + " in project " + project.getPath());
-			}
-
-			rejectNonJarArtifact(artifact);
-
-			AttacheDescriptorLibrary library = new AttacheDescriptorLibrary();
-			library.setGroupId(artifact.getModuleVersion().getId().getGroup());
-			library.setArtifactId(artifact.getName());
-			library.setVersion(artifact.getModuleVersion().getId().getVersion());
-
-			String classifier = artifact.getClassifier();
-			if (classifier != null && !classifier.isBlank()) {
-				library.setClassifier(classifier);
-			}
-
-			AttacheLibraryMetadata spec = extension.getLibraryMetadata().get(key);
-			if (spec != null) {
-				library.setResolveTransitiveDependencies(spec.getTransitive().getOrElse(false));
-				library.setSkipIfPresent(spec.getSkipIfPresent().getOrElse(true));
-				library.setIsolated(spec.getIsolated().getOrElse(false));
-				library.setLoader(spec.getLoader().getOrNull());
-				library.getRepositories().addAll(spec.getRepositories().getOrElse(Set.of()));
-				library.getFallbackRepositories().addAll(spec.getFallbackRepositories().getOrElse(Set.of()));
-				spec.getRelocations().getOrElse(java.util.List.of()).stream()
-						.map(relocation -> RelocationRule.builder()
-								.pattern(relocation.getPattern())
-								.relocatedPattern(relocation.getRelocatedPattern())
-								.build())
-						.forEach(library.getRelocations()::add);
-				spec.getExcludedTransitiveDependencies().getOrElse(java.util.List.of()).stream()
-						.map(excluded -> new ExcludedDependency(excluded.getGroupId(), excluded.getArtifactId()))
-						.forEach(library.getExcludedTransitiveDependencies()::add);
-			} else {
-				library.setResolveTransitiveDependencies(defaultTransitive);
-			}
-
-			fragment.getLibraries().add(library);
+		for (String key : defaultKeys) {
+			fragment.getLibraries().add(descriptorLibrary(project, extension, resolvedArtifacts, key));
 		}
 
+		groupKeys.forEach((group, keys) -> {
+			for (String key : keys) {
+				AttacheDescriptorLibrary library = descriptorLibrary(project, extension, resolvedArtifacts, key);
+				library.setGroup(group);
+				fragment.getLibraries().add(library);
+			}
+		});
+
 		return fragment;
+	}
+
+	@NotNull
+	private static AttacheDescriptorLibrary descriptorLibrary(
+			@NotNull Project project,
+			@NotNull AttacheExtension extension,
+			@NotNull Map<String, ResolvedArtifact> resolvedArtifacts,
+			@NotNull String key
+	) {
+		ResolvedArtifact artifact = resolvedArtifacts.get(key);
+		if (artifact == null) {
+			throw new GradleException("No resolved artifact found for Attache dependency " + key + " in project " + project.getPath());
+		}
+
+		rejectNonJarArtifact(artifact);
+
+		AttacheDescriptorLibrary library = new AttacheDescriptorLibrary();
+		library.setGroupId(artifact.getModuleVersion().getId().getGroup());
+		library.setArtifactId(artifact.getName());
+		library.setVersion(artifact.getModuleVersion().getId().getVersion());
+
+		String classifier = artifact.getClassifier();
+		if (classifier != null && !classifier.isBlank()) {
+			library.setClassifier(classifier);
+		}
+
+		AttacheLibraryMetadata spec = extension.getLibraryMetadata().get(key);
+		if (spec == null) {
+			library.setResolveTransitiveDependencies(extension.getTransitive().getOrElse(false));
+			return library;
+		}
+
+		library.setResolveTransitiveDependencies(spec.getTransitive().getOrElse(false));
+		library.setSkipIfPresent(spec.getSkipIfPresent().getOrElse(true));
+		library.setIsolated(spec.getIsolated().getOrElse(false));
+		library.setLoader(spec.getLoader().getOrNull());
+		library.getRepositories().addAll(spec.getRepositories().getOrElse(Set.of()));
+		library.getFallbackRepositories().addAll(spec.getFallbackRepositories().getOrElse(Set.of()));
+		spec.getRelocations().getOrElse(java.util.List.of()).stream()
+				.map(relocation -> RelocationRule.builder()
+						.pattern(relocation.getPattern())
+						.relocatedPattern(relocation.getRelocatedPattern())
+						.build())
+				.forEach(library.getRelocations()::add);
+		spec.getExcludedTransitiveDependencies().getOrElse(java.util.List.of()).stream()
+				.map(excluded -> new ExcludedDependency(excluded.getGroupId(), excluded.getArtifactId()))
+				.forEach(library.getExcludedTransitiveDependencies()::add);
+
+		return library;
 	}
 
 	private static void validateDependencies(@NotNull Configuration configuration) {

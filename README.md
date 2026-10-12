@@ -119,6 +119,20 @@ attache {
 }
 ```
 
+Libraries that only some installations need, such as the driver of one database, go in a named group. A grouped library is downloaded only when the application asks for its group at runtime, and declaring it in a group also adds it as a dependency:
+
+```kotlin
+attache {
+    group("postgres") {
+        library(libs.postgresql)
+    }
+
+    group("sqlite") {
+        library(libs.sqlite.jdbc)
+    }
+}
+```
+
 The plugin writes one descriptor fragment per Gradle project to a path derived from the project's directory relative to the repository root:
 
 ```text
@@ -235,7 +249,16 @@ Calling `loadDescriptors()` will:
 
 - discover all `META-INF/attache/**/attache.xml` fragments on the classpath
 - merge repositories and library definitions
-- download and load the libraries automatically
+- download and load the libraries declared outside any group
+
+`loadDescriptors()` leaves out libraries declared in a group. Load a group once you know it is needed, for example after reading which database is configured:
+
+```java
+libraryManager.loadDescriptors();
+libraryManager.loadGroups(config.databaseType());
+```
+
+`loadGroups` skips libraries that are already loaded and throws `IllegalArgumentException` for a group that no descriptor declares.
 
 For BungeeCord plugins, avoid declaring the same artifacts in Bungee's native `libraries` block and in Attache-managed descriptors at the same time. Let one system own each dependency to avoid duplicate loading and version ambiguity.
 

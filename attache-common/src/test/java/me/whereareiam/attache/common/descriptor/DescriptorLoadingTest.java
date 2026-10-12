@@ -84,6 +84,73 @@ class DescriptorLoadingTest {
 	}
 
 	@Test
+	void loadDescriptorsLeavesGroupedLibrariesOut() throws Exception {
+		writeDescriptor("common", fragment("common",
+				library("alpha"),
+				library("sqlite", "sqlite"),
+				library("mysql", "mysql")));
+
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
+			manager.loadDescriptors();
+
+			assertEquals(List.of("alpha-1.0.0.jar"), manager.getLoadedArtifacts());
+		}
+	}
+
+	@Test
+	void loadGroupsLoadsOnlyRequestedGroupsAndEachLibraryOnce() throws Exception {
+		writeDescriptor("common", fragment("common",
+				library("alpha"),
+				library("sqlite", "sqlite"),
+				library("pool", "mysql"),
+				library("mysql", "mysql")));
+		writeDescriptor("other", fragment("other",
+				library("pool", "postgres"),
+				library("postgres", "postgres")));
+
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
+			manager.loadDescriptors();
+			manager.loadGroups("mysql");
+			manager.loadGroups("mysql", "postgres");
+
+			assertEquals(
+					List.of("alpha-1.0.0.jar", "pool-1.0.0.jar", "mysql-1.0.0.jar", "postgres-1.0.0.jar"),
+					manager.getLoadedArtifacts()
+			);
+		}
+	}
+
+	@Test
+	void loadGroupsSkipsLibrariesAlreadyLoadedByDefault() throws Exception {
+		writeDescriptor("common", fragment("common", library("pool")));
+		writeDescriptor("mysql", fragment("mysql", library("pool", "mysql"), library("mysql", "mysql")));
+
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
+			manager.loadDescriptors();
+			manager.loadGroups("mysql");
+
+			assertEquals(List.of("pool-1.0.0.jar", "mysql-1.0.0.jar"), manager.getLoadedArtifacts());
+		}
+	}
+
+	@Test
+	void loadGroupsRejectsUndeclaredGroup() throws Exception {
+		writeDescriptor("common", fragment("common", library("sqlite", "sqlite")));
+
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
+			IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> manager.loadGroups("sqllite"));
+
+			assertTrue(exception.getMessage().contains("sqllite"));
+			assertTrue(exception.getMessage().contains("declared groups: sqlite"));
+			assertTrue(manager.getLoadedArtifacts().isEmpty());
+		}
+	}
+
+	@Test
 	void verboseModeLogsDescriptorLoadStartAndFinish() throws Exception {
 		writeDescriptor("common", fragment("common", library("alpha")));
 		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
@@ -132,6 +199,13 @@ class DescriptorLoadingTest {
 			fragment.getLibraries().add(library);
 		}
 		return fragment;
+	}
+
+	@NotNull
+	private AttacheDescriptorLibrary library(@NotNull String artifactId, @NotNull String group) {
+		AttacheDescriptorLibrary library = library(artifactId);
+		library.setGroup(group);
+		return library;
 	}
 
 	@NotNull

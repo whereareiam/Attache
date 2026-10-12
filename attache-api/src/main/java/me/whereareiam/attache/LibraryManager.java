@@ -200,9 +200,29 @@ public interface LibraryManager {
 	VerbosityMode getVerbosityMode();
 
 	/**
-	 * Loads packaged Attache descriptors and resolves their declared libraries.
+	 * Loads packaged Attache descriptors and resolves the libraries they declare outside any group.
+	 * <p>
+	 * Libraries declared in a group are left out; load them with {@link #loadGroups(String...)}.
+	 * Calling this method again has no effect.
 	 */
 	void loadDescriptors();
+
+	/**
+	 * Loads packaged Attache descriptors and resolves the libraries they declare in the given groups.
+	 * <p>
+	 * Groups let an application download only what its configuration needs, such as the driver of
+	 * the database it connects to:
+	 * <pre>{@code
+	 * libraryManager.loadDescriptors();
+	 * libraryManager.loadGroups(config.databaseType());
+	 * }</pre>
+	 * Libraries that are already loaded are skipped, so a group may be requested more than once and
+	 * a library shared by several groups is loaded once.
+	 *
+	 * @param groups the names of the groups to load
+	 * @throws IllegalArgumentException if no packaged descriptor declares one of the groups
+	 */
+	void loadGroups(@NotNull String... groups);
 
 	/**
 	 * Prints a summary of all loaded libraries.

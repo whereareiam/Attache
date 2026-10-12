@@ -38,6 +38,7 @@ public class AttacheDescriptorLibrary {
 	private boolean isolated;
 	private String loader;
 	private boolean resolveTransitiveDependencies;
+	private String group;
 
 	@NotNull
 	public LibraryRequest toLibraryRequest() {
@@ -82,6 +83,12 @@ public class AttacheDescriptorLibrary {
 		return key.toString();
 	}
 
+	/**
+	 * Compares the definition of two entries, ignoring the group each one belongs to.
+	 *
+	 * @param other the entry to compare with
+	 * @return true if both entries describe the same library in the same way
+	 */
 	public boolean sameDefinition(@NotNull AttacheDescriptorLibrary other) {
 		return Objects.equals(groupId, other.groupId)
 				&& Objects.equals(artifactId, other.artifactId)
