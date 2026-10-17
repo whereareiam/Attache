@@ -1,6 +1,8 @@
 package me.whereareiam.attache.plugin.gradle;
 
 import me.whereareiam.attache.Repositories;
+import me.whereareiam.attache.descriptor.AttacheDescriptorCodec;
+import me.whereareiam.attache.descriptor.AttacheDescriptorFragment;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
 import org.junit.jupiter.api.Test;
@@ -280,6 +282,57 @@ class AttachePluginFunctionalTest {
 		String xml = Files.readString(descriptor);
 		assertTrue(libraryBlock(xml, "gson").contains("resolve-transitive-dependencies=\"true\""));
 		assertTrue(libraryBlock(xml, "commons-lang3").contains("resolve-transitive-dependencies=\"false\""));
+	}
+
+	@Test
+	void writesRelocationsForEveryLibraryToTheDescriptor() throws Exception {
+		writeFile("settings.gradle.kts", """
+				rootProject.name = "fixture"
+				
+				dependencyResolutionManagement {
+				    repositories {
+				        mavenCentral()
+				    }
+				
+				    versionCatalogs {
+				        create("libs") {
+				            library("gson", "com.google.code.gson:gson:2.13.2")
+				        }
+				    }
+				}
+				""");
+
+		writeFile("build.gradle.kts", """
+				import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension
+				
+				plugins {
+				    `java-library`
+				    id("me.whereareiam.attache")
+				}
+				
+				dependencies {
+				    attache(libs.gson)
+				}
+				
+				extensions.configure<AttacheExtension>("attache") {
+				    relocate("net{}kyori{}adventure", "example.libs.adventure")
+				}
+				""");
+
+		BuildResult result = GradleRunner.create()
+				.withProjectDir(tempDir.toFile())
+				.withPluginClasspath()
+				.withArguments("generateAttacheDescriptor")
+				.build();
+
+		assertEquals(SUCCESS, result.task(":generateAttacheDescriptor").getOutcome());
+
+		Path descriptor = tempDir.resolve("build/generated/resources/attache/META-INF/attache/fixture/attache.xml");
+		AttacheDescriptorFragment fragment = AttacheDescriptorCodec.decode(Files.newInputStream(descriptor));
+		assertEquals(1, fragment.getRelocations().size());
+		assertEquals("net{}kyori{}adventure", fragment.getRelocations().get(0).getPattern());
+		assertEquals("example.libs.adventure", fragment.getRelocations().get(0).getRelocatedPattern());
+		assertTrue(fragment.getLibraries().get(0).getRelocations().isEmpty());
 	}
 
 	@Test

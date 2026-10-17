@@ -10,6 +10,7 @@ import me.whereareiam.attache.plugin.gradle.AttacheNotation;
 import me.whereareiam.attache.plugin.gradle.extension.AttacheExtension;
 import me.whereareiam.attache.plugin.gradle.extension.AttacheGroup;
 import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
+import me.whereareiam.attache.plugin.gradle.model.DescriptorRelocation;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
@@ -132,6 +133,9 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		fragment.setProjectName(project.getName());
 		fragment.setAddMavenCentral(extension.getAddMavenCentral().getOrElse(true));
 		fragment.getRepositories().addAll(extension.getRepositories().getOrElse(Set.of()));
+		extension.getRelocations().getOrElse(java.util.List.of()).stream()
+				.map(GenerateAttacheDescriptorTask::relocationRule)
+				.forEach(fragment.getRelocations()::add);
 
 		for (String key : defaultKeys) {
 			fragment.getLibraries().add(descriptorLibrary(project, extension, resolvedArtifacts, key));
@@ -185,16 +189,21 @@ public abstract class GenerateAttacheDescriptorTask extends DefaultTask {
 		library.getRepositories().addAll(spec.getRepositories().getOrElse(Set.of()));
 		library.getFallbackRepositories().addAll(spec.getFallbackRepositories().getOrElse(Set.of()));
 		spec.getRelocations().getOrElse(java.util.List.of()).stream()
-				.map(relocation -> RelocationRule.builder()
-						.pattern(relocation.getPattern())
-						.relocatedPattern(relocation.getRelocatedPattern())
-						.build())
+				.map(GenerateAttacheDescriptorTask::relocationRule)
 				.forEach(library.getRelocations()::add);
 		spec.getExcludedTransitiveDependencies().getOrElse(java.util.List.of()).stream()
 				.map(excluded -> new ExcludedDependency(excluded.getGroupId(), excluded.getArtifactId()))
 				.forEach(library.getExcludedTransitiveDependencies()::add);
 
 		return library;
+	}
+
+	@NotNull
+	private static RelocationRule relocationRule(@NotNull DescriptorRelocation relocation) {
+		return RelocationRule.builder()
+				.pattern(relocation.getPattern())
+				.relocatedPattern(relocation.getRelocatedPattern())
+				.build();
 	}
 
 	private static void validateDependencies(@NotNull Configuration configuration) {

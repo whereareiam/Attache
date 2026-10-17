@@ -129,6 +129,14 @@ attache {
 }
 ```
 
+`relocate` directly in the `attache {}` block relocates a package in every library the application's descriptors declare, including those other projects of the build declare, and in their transitive dependencies. Use it for a package the application shades and relocates itself, so every downloaded library refers to the shaded classes by their relocated name. A library's own relocation of the same package takes precedence, and two descriptors may not relocate one package to different names:
+
+```kotlin
+attache {
+    relocate("net{}kyori{}adventure", "me.example.libs.adventure")
+}
+```
+
 Libraries that only some installations need, such as the driver of one database, go in a named group. A grouped library is downloaded only when the application asks for its group at runtime, and declaring it in a group also adds it as a dependency:
 
 ```kotlin

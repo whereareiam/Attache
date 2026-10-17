@@ -41,13 +41,14 @@ public final class AttacheDescriptorCodec {
 		appendAttribute(xml, "project-name", fragment.getProjectName());
 		appendAttribute(xml, "add-maven-central", Boolean.toString(fragment.isAddMavenCentral()));
 
-		if (fragment.getRepositories().isEmpty() && fragment.getLibraries().isEmpty()) {
+		if (fragment.getRepositories().isEmpty() && fragment.getRelocations().isEmpty() && fragment.getLibraries().isEmpty()) {
 			xml.append("/>\n");
 			return xml.toString();
 		}
 
 		xml.append(">\n");
 		appendValueElements(xml, "repositories", "repository", fragment.getRepositories(), 1);
+		appendRelocations(xml, fragment.getRelocations(), 1);
 		appendLibraries(xml, fragment.getLibraries());
 		xml.append("</").append(ROOT).append(">\n");
 		return xml.toString();
@@ -83,6 +84,7 @@ public final class AttacheDescriptorCodec {
 		fragment.setProjectName(readAttribute(root, "project-name"));
 		fragment.setAddMavenCentral(readBooleanAttribute(root, "add-maven-central", true));
 		readValueElements(root, "repositories", "repository", fragment.getRepositories());
+		readRelocations(root, fragment.getRelocations());
 		readLibraries(root, fragment);
 		return fragment;
 	}
@@ -241,15 +243,15 @@ public final class AttacheDescriptorCodec {
 			readValueElements(libraryElement, "urls", "url", library.getUrls());
 			readValueElements(libraryElement, "repositories", "repository", library.getRepositories());
 			readValueElements(libraryElement, "fallback-repositories", "repository", library.getFallbackRepositories());
-			readRelocations(libraryElement, library);
+			readRelocations(libraryElement, library.getRelocations());
 			readExcludedDependencies(libraryElement, library);
 
 			fragment.getLibraries().add(library);
 		}
 	}
 
-	private static void readRelocations(@NotNull Element libraryElement, @NotNull AttacheDescriptorLibrary library) {
-		Element relocations = child(libraryElement, "relocations");
+	private static void readRelocations(@NotNull Element parent, @NotNull Collection<RelocationRule> target) {
+		Element relocations = child(parent, "relocations");
 		if (relocations == null) {
 			return;
 		}
@@ -261,7 +263,7 @@ public final class AttacheDescriptorCodec {
 
 			readValueElements(relocationElement, "includes", "include", builder::include);
 			readValueElements(relocationElement, "excludes", "exclude", builder::exclude);
-			library.getRelocations().add(builder.build());
+			target.add(builder.build());
 		}
 	}
 

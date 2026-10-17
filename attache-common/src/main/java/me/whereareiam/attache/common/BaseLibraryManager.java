@@ -847,7 +847,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 			return;
 		}
 
-		loadDescriptorLibraries(catalog.getDefaultLibraries());
+		loadDescriptorLibraries(catalog, catalog.getDefaultLibraries());
 		defaultDescriptorLibrariesLoaded = true;
 	}
 
@@ -865,7 +865,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		}
 
 		logDescriptorProgress("Loading declared libraries of group(s) " + String.join(", ", requested));
-		loadDescriptorLibraries(catalog.getGroupLibraries(requested));
+		loadDescriptorLibraries(catalog, catalog.getGroupLibraries(requested));
 	}
 
 	@NotNull
@@ -879,10 +879,10 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 		return descriptorCatalog;
 	}
 
-	private void loadDescriptorLibraries(@NotNull List<AttacheDescriptorLibrary> libraries) {
+	private void loadDescriptorLibraries(@NotNull DescriptorCatalog catalog, @NotNull List<AttacheDescriptorLibrary> libraries) {
 		List<LibraryRequest> requests = libraries.stream()
 				.filter(library -> loadedDescriptorLibraries.add(library.coordinatesKey()))
-				.map(AttacheDescriptorLibrary::toLibraryRequest)
+				.map(catalog::toLibraryRequest)
 				.toList();
 		if (!requests.isEmpty()) loadLibraries(requests);
 

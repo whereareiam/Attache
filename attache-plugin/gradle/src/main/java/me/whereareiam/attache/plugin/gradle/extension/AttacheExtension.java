@@ -3,10 +3,12 @@ package me.whereareiam.attache.plugin.gradle.extension;
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.plugin.gradle.AttacheNotation;
 import me.whereareiam.attache.plugin.gradle.model.AttacheLibraryMetadata;
+import me.whereareiam.attache.plugin.gradle.model.DescriptorRelocation;
 import org.gradle.api.Action;
 import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.artifacts.MinimalExternalModuleDependency;
 import org.gradle.api.model.ObjectFactory;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ProviderConvertible;
@@ -28,6 +30,7 @@ public class AttacheExtension {
 	private final Property<Boolean> transitive;
 	private final Property<Boolean> addMavenCentral;
 	private final SetProperty<String> repositories;
+	private final ListProperty<DescriptorRelocation> relocations;
 	private final Map<String, AttacheLibraryMetadata> libraries = new LinkedHashMap<>();
 	private final NamedDomainObjectContainer<AttacheGroup> groups;
 
@@ -41,6 +44,7 @@ public class AttacheExtension {
 		this.transitive = objects.property(Boolean.class);
 		this.addMavenCentral = objects.property(Boolean.class);
 		this.repositories = objects.setProperty(String.class);
+		this.relocations = objects.listProperty(DescriptorRelocation.class).convention(Collections.emptyList());
 		this.groups = objects.domainObjectContainer(AttacheGroup.class, name -> new AttacheGroup(objects, name, this));
 
 		if (inheritedDefaults != null) {
@@ -76,6 +80,28 @@ public class AttacheExtension {
 
 	public void mavenLocal() {
 		repositories.add(Repositories.mavenLocal());
+	}
+
+	/**
+	 * Gets the relocations applied to every library the application's descriptors declare.
+	 *
+	 * @return the relocations
+	 */
+	@NotNull
+	public ListProperty<DescriptorRelocation> getRelocations() {
+		return relocations;
+	}
+
+	/**
+	 * Relocates a package in every library the application's descriptors declare, including the libraries of
+	 * other projects, and in their transitive dependencies. Use it for a package the application shades or
+	 * relocates itself, so every downloaded library refers to it by the same name.
+	 *
+	 * @param pattern          the package to relocate, such as {@code net{}kyori{}adventure}
+	 * @param relocatedPattern the package it moves to
+	 */
+	public void relocate(@NotNull String pattern, @NotNull String relocatedPattern) {
+		relocations.add(new DescriptorRelocation(pattern, relocatedPattern));
 	}
 
 	@NotNull
