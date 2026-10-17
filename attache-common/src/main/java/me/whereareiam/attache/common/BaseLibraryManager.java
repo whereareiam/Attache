@@ -13,6 +13,8 @@ import me.whereareiam.attache.common.loader.SequentialLibraryLoader;
 import me.whereareiam.attache.common.logging.Logger;
 import me.whereareiam.attache.resolution.DependencyResolver;
 import me.whereareiam.attache.resolution.DependencyResolverFactory;
+import me.whereareiam.attache.resolution.model.ResolvedArtifact;
+import me.whereareiam.attache.resolution.model.ResolvedDependency;
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.descriptor.AttacheDescriptorLibrary;
 import me.whereareiam.attache.model.LibraryRequest;
@@ -652,25 +654,92 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	protected void resolveTransitiveLibraries(@NotNull LibraryRequest library) {
 		requireNonNull(library, "library");
 
-		synchronized (this) {
-			if (dependencyResolver == null)
-				dependencyResolver = resolverFactory.create(this);
+		LibraryRequest normalized = LibraryHelper.normalize(library);
+		for (var artifact : dependencyResolver().resolve(normalized, resolveRepositories(normalized))) {
+			loadLibrary(dependencyRequest(artifact, normalized));
+		}
+	}
+
+	/**
+	 * Resolves the transitive dependencies of libraries that load together as one dependency graph, so every
+	 * artifact loads in one version. A dependency loads once for every distinct way the libraries that need it
+	 * load, with their relocations and class loader, as it would for each library on its own.
+	 *
+	 * @param libraries the libraries to load together
+	 * @return the requests that load the libraries and their dependencies, none of them resolving further
+	 * @throws IllegalStateException if two libraries that resolve transitive dependencies are the same artifact
+	 */
+	@NotNull
+	protected List<LibraryRequest> resolveDependencyGraph(@NotNull List<LibraryRequest> libraries) {
+		List<LibraryRequest> roots = libraries.stream()
+				.filter(LibraryRequest::isResolveTransitiveDependencies)
+				.map(LibraryHelper::normalize)
+				.toList();
+		if (roots.isEmpty()) return libraries;
+
+		Map<String, LibraryRequest> rootsByArtifact = new LinkedHashMap<>();
+		for (LibraryRequest root : roots) {
+			LibraryRequest existing = rootsByArtifact.putIfAbsent(artifactKey(root.getGroupId(), root.getArtifactId(), root.getClassifier()), root);
+			if (existing != null)
+				throw new IllegalStateException("Libraries " + existing + " and " + root + " are the same artifact in one dependency graph");
 		}
 
-		LibraryRequest normalized = LibraryHelper.normalize(library);
-		for (var artifact : dependencyResolver.resolve(normalized, resolveRepositories(normalized))) {
-			LibraryRequest request = LibraryRequest.builder()
-					.groupId(artifact.getGroupId())
-					.artifactId(artifact.getArtifactId())
-					.version(artifact.getBaseVersion())
-					.classifier(artifact.getClassifier())
-					.url(artifact.getFile().toUri().toString())
-					.isolated(normalized.isIsolated())
-					.loader(normalized.getLoader())
-					.relocations(normalized.getRelocations())
-					.build();
-			loadLibrary(request);
+		Set<String> repositories = new LinkedHashSet<>();
+		roots.forEach(root -> repositories.addAll(resolveRepositories(root)));
+
+		Set<LibraryRequest> requests = new LinkedHashSet<>();
+		libraries.stream().filter(library -> !library.isResolveTransitiveDependencies()).forEach(requests::add);
+		for (ResolvedDependency dependency : dependencyResolver().resolve(roots, repositories)) {
+			ResolvedArtifact artifact = dependency.getArtifact();
+			LibraryRequest root = rootsByArtifact.remove(artifactKey(artifact.getGroupId(), artifact.getArtifactId(), artifact.getClassifier()));
+			if (root != null) requests.add(root.toBuilder().resolveTransitiveDependencies(false).build());
+
+			for (LibraryRequest dependent : dependency.getDependents()) {
+				requests.add(root != null
+						? root.toBuilder()
+								.resolveTransitiveDependencies(false)
+								.isolated(dependent.isIsolated())
+								.loader(dependent.getLoader())
+								.clearRelocations()
+								.relocations(dependent.getRelocations())
+								.build()
+						: dependencyRequest(artifact, dependent));
+			}
 		}
+
+		// Every library loads, also one the resolver left out of the graph.
+		rootsByArtifact.values().forEach(root -> requests.add(root.toBuilder().resolveTransitiveDependencies(false).build()));
+		return List.copyOf(requests);
+	}
+
+	@NotNull
+	private synchronized DependencyResolver dependencyResolver() {
+		if (dependencyResolver == null)
+			dependencyResolver = resolverFactory.create(this);
+
+		return dependencyResolver;
+	}
+
+	/**
+	 * Builds the request that loads a resolved dependency the way the library that needs it loads.
+	 */
+	@NotNull
+	private static LibraryRequest dependencyRequest(@NotNull ResolvedArtifact artifact, @NotNull LibraryRequest dependent) {
+		return LibraryRequest.builder()
+				.groupId(artifact.getGroupId())
+				.artifactId(artifact.getArtifactId())
+				.version(artifact.getBaseVersion())
+				.classifier(artifact.getClassifier())
+				.url(artifact.getFile().toUri().toString())
+				.isolated(dependent.isIsolated())
+				.loader(dependent.getLoader())
+				.relocations(dependent.getRelocations())
+				.build();
+	}
+
+	@NotNull
+	private static String artifactKey(@NotNull String groupId, @NotNull String artifactId, @Nullable String classifier) {
+		return groupId + ':' + artifactId + ':' + (classifier == null ? "" : classifier);
 	}
 
 	@Override
@@ -884,7 +953,7 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 				.filter(library -> loadedDescriptorLibraries.add(library.coordinatesKey()))
 				.map(catalog::toLibraryRequest)
 				.toList();
-		if (!requests.isEmpty()) loadLibraries(requests);
+		if (!requests.isEmpty()) loadLibraries(resolveDependencyGraph(requests));
 
 		if (verbosityMode == VerbosityMode.VERBOSE) {
 			logger.info("Finished loading " + requests.size() + " libraries");

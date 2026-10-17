@@ -3,6 +3,7 @@ package me.whereareiam.attache.launcher;
 import me.whereareiam.attache.Repositories;
 import me.whereareiam.attache.LibraryManager;
 import me.whereareiam.attache.resolution.model.ResolvedArtifact;
+import me.whereareiam.attache.resolution.model.ResolvedDependency;
 import me.whereareiam.attache.common.util.LibraryHelper;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.model.RelocationRule;
@@ -14,6 +15,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -91,6 +93,14 @@ final class IsolatedDependencyResolver implements DependencyResolver {
 			@NotNull Collection<String> repositories
 	) {
 		return resolver.resolve(library, repositories);
+	}
+
+	@Override
+	public @NotNull List<ResolvedDependency> resolve(
+			@NotNull List<LibraryRequest> libraries,
+			@NotNull Collection<String> repositories
+	) {
+		return resolver.resolve(libraries, repositories);
 	}
 
 	/**

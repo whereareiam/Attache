@@ -203,7 +203,9 @@ public interface LibraryManager {
 	 * Loads packaged Attache descriptors and resolves the libraries they declare outside any group.
 	 * <p>
 	 * Libraries declared in a group are left out; load them with {@link #loadGroups(String...)}.
-	 * Calling this method again has no effect.
+	 * The transitive dependencies of the libraries resolve as one dependency graph, so every artifact
+	 * loads in one version; a dependency loads with the relocations and class loader of each library
+	 * that needs it. Calling this method again has no effect.
 	 */
 	void loadDescriptors();
 
@@ -217,7 +219,8 @@ public interface LibraryManager {
 	 * libraryManager.loadGroups(config.databaseType());
 	 * }</pre>
 	 * Libraries that are already loaded are skipped, so a group may be requested more than once and
-	 * a library shared by several groups is loaded once.
+	 * a library shared by several groups is loaded once. The libraries of one call resolve as one
+	 * dependency graph, as {@link #loadDescriptors()} describes.
 	 *
 	 * @param groups the names of the groups to load
 	 * @throws IllegalArgumentException if no packaged descriptor declares one of the groups
