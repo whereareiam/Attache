@@ -266,8 +266,11 @@ libraryManager.loadDescriptors();
 Calling `loadDescriptors()` will:
 
 - discover all `META-INF/attache/**/attache.xml` fragments on the classpath
-- merge repositories and library definitions
-- download and load the libraries declared outside any group
+- merge repositories, relocations and library definitions
+- resolve the transitive dependencies of the libraries declared outside any group as one dependency graph
+- download and load those libraries and their dependencies
+
+One graph means every artifact loads in one version, as Maven resolves a project: the version nearest to a declared library wins, and a declared library wins over any other version of itself, so declaring a library pins its version. A dependency still loads the way each library that needs it loads, with that library's relocations and class loader, so it may load more than once, relocated differently. Two libraries that resolve transitive dependencies may not declare different versions of one artifact. Each `loadGroups` call resolves the libraries of its groups as one graph of their own.
 
 `loadDescriptors()` leaves out libraries declared in a group. Load a group once you know it is needed, for example after reading which database is configured:
 

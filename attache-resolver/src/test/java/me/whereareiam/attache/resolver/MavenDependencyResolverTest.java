@@ -3,6 +3,7 @@ package me.whereareiam.attache.resolver;
 import com.sun.net.httpserver.HttpServer;
 import me.whereareiam.attache.model.ExcludedDependency;
 import me.whereareiam.attache.model.LibraryRequest;
+import me.whereareiam.attache.resolution.model.ResolvedDependency;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -56,6 +57,56 @@ class MavenDependencyResolverTest {
 	}
 
 	@Test
+	void resolvesSeveralLibrariesAsOneGraphWithOneVersionOfEachArtifact() throws Exception {
+		try (Repository repository = new Repository(); var resolver = new MavenDependencyResolver(directory)) {
+			var near = LibraryRequest.builder().groupId("test").artifactId("near").version("1").resolveTransitiveDependencies(true).build();
+			var far = LibraryRequest.builder().groupId("test").artifactId("far").version("1").resolveTransitiveDependencies(true).build();
+			var graph = resolver.resolve(List.of(near, far), List.of(repository.url()));
+
+			assertEquals(List.of("far:1", "middle:1", "near:1", "shared:1"), graph.stream()
+					.map(dependency -> dependency.getArtifact().getArtifactId() + ':' + dependency.getArtifact().getVersion())
+					.sorted().toList());
+			assertEquals(List.of(near, far), dependents(graph, "shared"));
+			assertEquals(List.of(far), dependents(graph, "middle"));
+			assertEquals(List.of(near), dependents(graph, "near"));
+			assertEquals(0, repository.requests("shared-2.jar"));
+			assertEquals(1, repository.requests("shared-1.jar"));
+		}
+	}
+
+	@Test
+	void givesALibraryTheDependenciesOfTheVersionThatWon() throws Exception {
+		try (Repository repository = new Repository(); var resolver = new MavenDependencyResolver(directory)) {
+			var pinned = LibraryRequest.builder().groupId("test").artifactId("shared").version("2").resolveTransitiveDependencies(true).build();
+			var far = LibraryRequest.builder().groupId("test").artifactId("far").version("1").resolveTransitiveDependencies(true).build();
+			var graph = resolver.resolve(List.of(pinned, far), List.of(repository.url()));
+
+			assertEquals(List.of("extra:1", "far:1", "middle:1", "shared:2"), graph.stream()
+					.map(dependency -> dependency.getArtifact().getArtifactId() + ':' + dependency.getArtifact().getVersion())
+					.sorted().toList());
+			assertEquals(List.of(pinned, far), dependents(graph, "shared"));
+			assertEquals(List.of(pinned, far), dependents(graph, "extra"));
+		}
+	}
+
+	@Test
+	void leavesTheDependenciesOfANonTransitiveLibraryOut() throws Exception {
+		try (Repository repository = new Repository(); var resolver = new MavenDependencyResolver(directory)) {
+			var near = LibraryRequest.builder().groupId("test").artifactId("near").version("1").build();
+			var graph = resolver.resolve(List.of(near), List.of(repository.url()));
+
+			assertEquals(List.of("near"), graph.stream().map(dependency -> dependency.getArtifact().getArtifactId()).toList());
+		}
+	}
+
+	private static List<LibraryRequest> dependents(List<ResolvedDependency> graph, String artifactId) {
+		return graph.stream()
+				.filter(dependency -> dependency.getArtifact().getArtifactId().equals(artifactId))
+				.findFirst().orElseThrow()
+				.getDependents();
+	}
+
+	@Test
 	void rejectsResolutionAfterClose() {
 		var resolver = new MavenDependencyResolver(directory);
 		resolver.close();
@@ -78,18 +129,25 @@ class MavenDependencyResolverTest {
 				requests.computeIfAbsent(path, ignored -> new AtomicInteger()).incrementAndGet();
 				byte[] bytes = null;
 				if (path.endsWith(".pom")) {
-					String artifact = path.substring(path.lastIndexOf('/') + 1).replace("-1.pom", "");
-					String dependencies = "<dependencies>" + switch (artifact) {
-						case "root" -> dependency("compile", "compile") + dependency("runtime", "runtime")
+					String file = path.substring(path.lastIndexOf('/') + 1);
+					String version = path.substring(0, path.lastIndexOf('/'));
+					version = version.substring(version.lastIndexOf('/') + 1);
+					String artifact = file.substring(0, file.length() - ("-" + version + ".pom").length());
+					String dependencies = "<dependencies>" + switch (artifact + ':' + version) {
+						case "root:1" -> dependency("compile", "compile") + dependency("runtime", "runtime")
 								+ dependency("excluded", "runtime") + dependency("test", "test")
 								+ dependency("provided", "provided");
-						case "nested" -> dependency("excluded", "compile") + dependency("other", "compile");
-						case "excluded" -> dependency("hidden", "compile") + dependency("shared", "compile");
-						case "other" -> dependency("shared", "compile");
+						case "nested:1" -> dependency("excluded", "compile") + dependency("other", "compile");
+						case "excluded:1" -> dependency("hidden", "compile") + dependency("shared", "compile");
+						case "other:1" -> dependency("shared", "compile");
+						case "near:1" -> dependency("shared", "compile");
+						case "far:1" -> dependency("middle", "compile");
+						case "middle:1" -> dependency("shared", "2", "compile");
+						case "shared:2" -> dependency("extra", "compile");
 						default -> "";
 					} + "</dependencies>";
 					bytes = ("<project><modelVersion>4.0.0</modelVersion><groupId>test</groupId><artifactId>"
-							+ artifact + "</artifactId><version>1</version>" + dependencies + "</project>").getBytes(StandardCharsets.UTF_8);
+							+ artifact + "</artifactId><version>" + version + "</version>" + dependencies + "</project>").getBytes(StandardCharsets.UTF_8);
 				} else if (path.endsWith(".jar") && !path.endsWith("excluded-1.jar")) bytes = jar;
 				if (bytes == null) exchange.sendResponseHeaders(404, -1);
 				else if (exchange.getRequestMethod().equals("HEAD")) exchange.sendResponseHeaders(200, -1);
@@ -103,7 +161,11 @@ class MavenDependencyResolverTest {
 		}
 
 		private String dependency(String artifact, String scope) {
-			return "<dependency><groupId>test</groupId><artifactId>" + artifact + "</artifactId><version>1</version><scope>" + scope + "</scope></dependency>";
+			return dependency(artifact, "1", scope);
+		}
+
+		private String dependency(String artifact, String version, String scope) {
+			return "<dependency><groupId>test</groupId><artifactId>" + artifact + "</artifactId><version>" + version + "</version><scope>" + scope + "</scope></dependency>";
 		}
 		String url() { return "http://127.0.0.1:" + server.getAddress().getPort() + "/"; }
 		int requests(String file) { return requests.entrySet().stream().filter(entry -> entry.getKey().endsWith('/' + file)).mapToInt(entry -> entry.getValue().get()).sum(); }
