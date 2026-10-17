@@ -106,7 +106,8 @@ public class LibraryRequest {
 	boolean resolveTransitiveDependencies = false;
 
 	/**
-	 * Transitive dependencies that should be excluded on transitive resolution.
+	 * Transitive dependencies that should be excluded on transitive resolution, together with
+	 * the dependencies only they bring in.
 	 */
 	@NotNull
 	@NonNull
