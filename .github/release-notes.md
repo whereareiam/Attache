@@ -1,7 +1,7 @@
 ---
-version: 1.1.0
+version: 1.1.1
 ---
 
-# Attache 1.1.0 - Dependency groups
+# Attache 1.1.1 - Exclusions
 
-Libraries can now be declared in named groups, so an application downloads only the ones its configuration needs, such as the driver of the database it connects to. Declare a group with `group("name") { library(...) }` in the Gradle plugin and load it at runtime with `loadGroups("name")`.
+An excluded transitive dependency now takes its own dependencies with it, as a Maven exclusion does, so excluding an artifact your application ships in another version no longer downloads the old version's dependencies next to yours. A dependency that another path also needs is still downloaded.
