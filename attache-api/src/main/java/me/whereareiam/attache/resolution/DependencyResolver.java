@@ -12,7 +12,9 @@ import java.util.Collection;
 public interface DependencyResolver extends AutoCloseable {
 	/**
 	 * Collects the dependency graph and resolves compile/runtime artifacts, excluding the root
-	 * library itself and the requested excluded artifacts. Repository order is preserved.
+	 * library itself. An excluded artifact is left out of the graph together with its own
+	 * dependencies, as a Maven exclusion is; those stay only where another path reaches them.
+	 * Repository order is preserved.
 	 *
 	 * @param library normalized root request
 	 * @param repositories ordered repository URLs

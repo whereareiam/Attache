@@ -43,6 +43,19 @@ class MavenDependencyResolverTest {
 	}
 
 	@Test
+	void excludesTheDependenciesOfAnExcludedArtifactUnlessAnotherPathReachesThem() throws Exception {
+		try (Repository repository = new Repository(); var resolver = new MavenDependencyResolver(directory)) {
+			var request = LibraryRequest.builder().groupId("test").artifactId("nested").version("1")
+					.excludedTransitiveDependency(new ExcludedDependency("test", "excluded")).build();
+			var artifacts = resolver.resolve(request, List.of(repository.url()));
+			assertEquals(List.of("other", "shared"), artifacts.stream().map(artifact -> artifact.getArtifactId()).sorted().toList());
+			assertEquals(0, repository.requests("excluded-1.pom"));
+			assertEquals(0, repository.requests("hidden-1.pom"));
+			assertEquals(0, repository.requests("hidden-1.jar"));
+		}
+	}
+
+	@Test
 	void rejectsResolutionAfterClose() {
 		var resolver = new MavenDependencyResolver(directory);
 		resolver.close();
@@ -66,10 +79,15 @@ class MavenDependencyResolverTest {
 				byte[] bytes = null;
 				if (path.endsWith(".pom")) {
 					String artifact = path.substring(path.lastIndexOf('/') + 1).replace("-1.pom", "");
-					String dependencies = artifact.equals("root") ? "<dependencies>"
-							+ dependency("compile", "compile") + dependency("runtime", "runtime")
-							+ dependency("excluded", "runtime") + dependency("test", "test")
-							+ dependency("provided", "provided") + "</dependencies>" : "";
+					String dependencies = "<dependencies>" + switch (artifact) {
+						case "root" -> dependency("compile", "compile") + dependency("runtime", "runtime")
+								+ dependency("excluded", "runtime") + dependency("test", "test")
+								+ dependency("provided", "provided");
+						case "nested" -> dependency("excluded", "compile") + dependency("other", "compile");
+						case "excluded" -> dependency("hidden", "compile") + dependency("shared", "compile");
+						case "other" -> dependency("shared", "compile");
+						default -> "";
+					} + "</dependencies>";
 					bytes = ("<project><modelVersion>4.0.0</modelVersion><groupId>test</groupId><artifactId>"
 							+ artifact + "</artifactId><version>1</version>" + dependencies + "</project>").getBytes(StandardCharsets.UTF_8);
 				} else if (path.endsWith(".jar") && !path.endsWith("excluded-1.jar")) bytes = jar;

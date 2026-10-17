@@ -4,7 +4,6 @@
  */
 package me.whereareiam.attache.resolver;
 
-import me.whereareiam.attache.model.ExcludedDependency;
 import me.whereareiam.attache.model.LibraryRequest;
 import me.whereareiam.attache.resolution.DependencyResolver;
 import me.whereareiam.attache.resolution.model.ResolvedArtifact;
@@ -16,6 +15,7 @@ import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.collection.DependencyCollectionException;
 import org.eclipse.aether.graph.Dependency;
+import org.eclipse.aether.graph.Exclusion;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.DependencyRequest;
@@ -95,14 +95,17 @@ public final class MavenDependencyResolver implements DependencyResolver {
 			var remotes = repositories.stream().map(MavenDependencyResolver::repository).toList();
 			var root = new DefaultArtifact(library.getGroupId(), library.getArtifactId(), library.getClassifier(), "jar", library.getVersion());
 			var scopes = new ScopeDependencyFilter(List.of(JavaScopes.COMPILE, JavaScopes.RUNTIME), List.of());
-			var graph = system.collectDependencies(session, new CollectRequest(new Dependency(root, JavaScopes.COMPILE), remotes));
+			// Exclusions apply while collecting, as Maven's do: an excluded artifact takes its own dependencies with it.
+			var exclusions = library.getExcludedTransitiveDependencies().stream()
+					.map(excluded -> new Exclusion(excluded.getGroupId(), excluded.getArtifactId(), "*", "*"))
+					.toList();
+			var graph = system.collectDependencies(session, new CollectRequest(
+					new Dependency(root, JavaScopes.COMPILE, false, exclusions), remotes));
 
-			// The caller already downloads the root. Exclusions prevent transfers, not just classpath additions.
+			// The caller already downloads the root.
 			var request = new DependencyRequest(graph.getRoot(), (node, parents) -> !parents.isEmpty()
 					&& scopes.accept(node, parents)
-					&& node.getArtifact().getExtension().equals("jar")
-					&& !library.getExcludedTransitiveDependencies().contains(new ExcludedDependency(
-							node.getArtifact().getGroupId(), node.getArtifact().getArtifactId())));
+					&& node.getArtifact().getExtension().equals("jar"));
 
 			return system.resolveDependencies(session, request).getArtifactResults().stream()
 					.filter(result -> result.isResolved())

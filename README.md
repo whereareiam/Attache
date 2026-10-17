@@ -119,6 +119,16 @@ attache {
 }
 ```
 
+`excludeTransitive` leaves an artifact out of a library's transitive dependencies, as a Maven exclusion does: the excluded artifact is not downloaded and neither are the dependencies it brings in. A dependency of the excluded artifact is still downloaded when another dependency of the library needs it too. Exclude an artifact your application already ships in another version, so its own dependencies do not arrive next to yours:
+
+```kotlin
+attache {
+    library(libs.strata.adapter.configura) {
+        excludeTransitive("me.whereareiam", "configura")
+    }
+}
+```
+
 Libraries that only some installations need, such as the driver of one database, go in a named group. A grouped library is downloaded only when the application asks for its group at runtime, and declaring it in a group also adds it as a dependency:
 
 ```kotlin
