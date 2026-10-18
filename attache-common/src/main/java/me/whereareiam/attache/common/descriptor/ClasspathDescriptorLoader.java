@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.security.CodeSource;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -38,6 +39,21 @@ public final class ClasspathDescriptorLoader {
 		scanResourceRoots(classLoader, descriptors);
 		scanClassLoaderUrls(classLoader, descriptors);
 		scanCodeSource(anchorClass, descriptors);
+
+		return Collections.unmodifiableList(new ArrayList<>(descriptors.values()));
+	}
+
+	/**
+	 * Reads the descriptors of the given jars or directories only, leaving out every class loader.
+	 *
+	 * @param sources the jars or directories to read
+	 * @return the descriptors they hold, in the order of the sources
+	 */
+	@NotNull
+	public List<LoadedDescriptorFragment> load(@NotNull Collection<URL> sources) {
+		LinkedHashMap<String, LoadedDescriptorFragment> descriptors = new LinkedHashMap<>();
+		for (URL source : sources)
+			scanClasspathUrl(Objects.requireNonNull(source, "source"), descriptors);
 
 		return Collections.unmodifiableList(new ArrayList<>(descriptors.values()));
 	}

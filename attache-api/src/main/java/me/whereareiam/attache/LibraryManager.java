@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
+import java.net.URL;
 import java.util.Collection;
 
 /**
@@ -198,6 +199,30 @@ public interface LibraryManager {
 	 */
 	@NotNull
 	VerbosityMode getVerbosityMode();
+
+	/**
+	 * Reads packaged Attache descriptors only from the given jars or directories.
+	 * <p>
+	 * By default a library manager reads the descriptors of its class loader and its parents, of the
+	 * thread's context class loader and of the jar it was loaded from. A part of an application that
+	 * has a class loader of its own, such as an add-on whose class loader is a child of the
+	 * application's, would then read the application's descriptors too and load the application's
+	 * libraries a second time. Naming the part's own jar keeps its library manager to the libraries
+	 * that part declares:
+	 * <pre>{@code
+	 * LibraryManager addonLibraries = new StandaloneLibraryManager(logging, dataDirectory, "libraries", addonClassLoader);
+	 * addonLibraries.setDescriptorSources(List.of(addonJar.toUri().toURL()));
+	 * addonLibraries.loadDescriptors();
+	 * }</pre>
+	 * A library that a parent class loader already provides is still skipped when its request allows
+	 * it, as without this setting.
+	 *
+	 * @param sources the jars or directories to read descriptors from; not empty
+	 * @throws IllegalArgumentException if no source is given
+	 * @throws IllegalStateException    if descriptors have already been read, by {@link #loadDescriptors()}
+	 *                                  or {@link #loadGroups(String...)}
+	 */
+	void setDescriptorSources(@NotNull Collection<URL> sources);
 
 	/**
 	 * Loads packaged Attache descriptors and resolves the libraries they declare outside any group.

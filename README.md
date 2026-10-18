@@ -281,6 +281,16 @@ libraryManager.loadGroups(config.databaseType());
 
 `loadGroups` skips libraries that are already loaded and throws `IllegalArgumentException` for a group that no descriptor declares.
 
+A manager reads the descriptors of its class loader, the class loader's parents, the thread's context class loader and its own jar. A part of an application with a class loader of its own, such as an add-on loaded in a child class loader, would read the application's descriptors as well and load its libraries again. Give that part's manager its own jar as the only source before loading:
+
+```java
+LibraryManager addonLibraries = new StandaloneLibraryManager(logging, dataDirectory, "libraries", addonClassLoader);
+addonLibraries.setDescriptorSources(List.of(addonJar.toUri().toURL()));
+addonLibraries.loadDescriptors();
+```
+
+Libraries the application's class loader already provides are still skipped where the request allows it.
+
 For BungeeCord plugins, avoid declaring the same artifacts in Bungee's native `libraries` block and in Attache-managed descriptors at the same time. Let one system own each dependency to avoid duplicate loading and version ambiguity.
 
 ### Spring Boot Example (auto-configuration)

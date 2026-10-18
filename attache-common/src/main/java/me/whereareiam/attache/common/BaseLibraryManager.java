@@ -119,6 +119,8 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	private final ClasspathDescriptorLoader classpathDescriptorLoader = new ClasspathDescriptorLoader();
 	private final Set<String> loadedDescriptorLibraries = new HashSet<>();
 	private DescriptorCatalog descriptorCatalog;
+	@Nullable
+	private List<URL> descriptorSources;
 	private boolean defaultDescriptorLibrariesLoaded;
 
 	/**
@@ -905,6 +907,16 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	}
 
 	@Override
+	public final synchronized void setDescriptorSources(@NotNull Collection<URL> sources) {
+		List<URL> copy = List.copyOf(requireNonNull(sources, "sources"));
+		if (copy.isEmpty()) throw new IllegalArgumentException("At least one descriptor source is needed");
+		if (descriptorCatalog != null)
+			throw new IllegalStateException("Descriptors have already been read; set their sources before loading them");
+
+		descriptorSources = copy;
+	}
+
+	@Override
 	public final synchronized void loadDescriptors() {
 		if (defaultDescriptorLibrariesLoaded) return;
 
@@ -940,7 +952,9 @@ public abstract class BaseLibraryManager implements LibraryManager, AutoCloseabl
 	@NotNull
 	private DescriptorCatalog descriptorCatalog() {
 		if (descriptorCatalog == null) {
-			descriptorCatalog = DescriptorCatalog.merge(classpathDescriptorLoader.load(getDescriptorClassLoader(), getClass()));
+			descriptorCatalog = DescriptorCatalog.merge(descriptorSources == null
+					? classpathDescriptorLoader.load(getDescriptorClassLoader(), getClass())
+					: classpathDescriptorLoader.load(descriptorSources));
 			if (descriptorCatalog.isAddMavenCentral()) addMavenCentral();
 			descriptorCatalog.getRepositories().forEach(this::addRepository);
 		}

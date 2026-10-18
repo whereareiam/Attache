@@ -151,6 +151,77 @@ class DescriptorLoadingTest {
 	}
 
 	@Test
+	void descriptorSourcesKeepAChildClassLoaderToItsOwnDescriptors() throws Exception {
+		Path application = tempDir.resolve("application");
+		Path addon = tempDir.resolve("addon");
+		writeDescriptor(application, "application", fragment("application", library("alpha")));
+		writeDescriptor(addon, "addon", fragment("addon", library("beta")));
+
+		try (URLClassLoader parent = new URLClassLoader(new URL[]{application.toUri().toURL()}, null);
+		     URLClassLoader child = new URLClassLoader(new URL[]{addon.toUri().toURL()}, parent);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, child)) {
+			manager.setDescriptorSources(List.of(addon.toUri().toURL()));
+			manager.loadDescriptors();
+
+			assertEquals(List.of("beta-1.0.0.jar"), manager.getLoadedArtifacts());
+		}
+	}
+
+	@Test
+	void withoutDescriptorSourcesAChildClassLoaderReadsItsParentsDescriptors() throws Exception {
+		Path application = tempDir.resolve("application");
+		Path addon = tempDir.resolve("addon");
+		writeDescriptor(application, "application", fragment("application", library("alpha")));
+		writeDescriptor(addon, "addon", fragment("addon", library("beta")));
+
+		try (URLClassLoader parent = new URLClassLoader(new URL[]{application.toUri().toURL()}, null);
+		     URLClassLoader child = new URLClassLoader(new URL[]{addon.toUri().toURL()}, parent);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, child)) {
+			manager.loadDescriptors();
+
+			assertEquals(Set.of("alpha-1.0.0.jar", "beta-1.0.0.jar"), Set.copyOf(manager.getLoadedArtifacts()));
+		}
+	}
+
+	@Test
+	void descriptorSourcesAlsoLimitGroups() throws Exception {
+		Path application = tempDir.resolve("application");
+		Path addon = tempDir.resolve("addon");
+		writeDescriptor(application, "application", fragment("application", library("mysql", "mysql")));
+		writeDescriptor(addon, "addon", fragment("addon", library("sqlite", "sqlite")));
+
+		try (URLClassLoader parent = new URLClassLoader(new URL[]{application.toUri().toURL()}, null);
+		     URLClassLoader child = new URLClassLoader(new URL[]{addon.toUri().toURL()}, parent);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, child)) {
+			manager.setDescriptorSources(List.of(addon.toUri().toURL()));
+
+			assertThrows(IllegalArgumentException.class, () -> manager.loadGroups("mysql"));
+			manager.loadGroups("sqlite");
+			assertEquals(List.of("sqlite-1.0.0.jar"), manager.getLoadedArtifacts());
+		}
+	}
+
+	@Test
+	void descriptorSourcesCannotChangeOnceDescriptorsAreRead() throws Exception {
+		writeDescriptor("common", fragment("common", library("alpha")));
+
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
+			manager.loadDescriptors();
+
+			assertThrows(IllegalStateException.class, () -> manager.setDescriptorSources(List.of(tempDir.toUri().toURL())));
+		}
+	}
+
+	@Test
+	void descriptorSourcesMustNotBeEmpty() throws Exception {
+		try (URLClassLoader classLoader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null);
+		     TestDescriptorLibraryManager manager = new TestDescriptorLibraryManager(tempDir, classLoader)) {
+			assertThrows(IllegalArgumentException.class, () -> manager.setDescriptorSources(List.of()));
+		}
+	}
+
+	@Test
 	void verboseModeLogsDescriptorLoadStartAndFinish() throws Exception {
 		writeDescriptor("common", fragment("common", library("alpha")));
 		RecordingLoggingHelper loggingHelper = new RecordingLoggingHelper();
@@ -182,7 +253,11 @@ class DescriptorLoadingTest {
 	}
 
 	private void writeDescriptor(@NotNull String relativeDir, @NotNull AttacheDescriptorFragment fragment) throws Exception {
-		Path file = tempDir.resolve("META-INF/attache").resolve(relativeDir).resolve("attache.xml");
+		writeDescriptor(tempDir, relativeDir, fragment);
+	}
+
+	private void writeDescriptor(@NotNull Path root, @NotNull String relativeDir, @NotNull AttacheDescriptorFragment fragment) throws Exception {
+		Path file = root.resolve("META-INF/attache").resolve(relativeDir).resolve("attache.xml");
 		Files.createDirectories(file.getParent());
 		Files.writeString(file, AttacheDescriptorCodec.encode(fragment), StandardCharsets.UTF_8);
 	}
