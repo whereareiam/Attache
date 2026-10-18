@@ -14,7 +14,7 @@ junit = "6.0.0"
 bungee = "26.1-R0.1-SNAPSHOT"
 bukkit = "26.1.2-R0.1-SNAPSHOT"
 paper = "26.1.2.build.63-stable"
-velocity = "3.4.0-SNAPSHOT"
+velocity = "4.2.1-SNAPSHOT"
 
 # platforms apis -> spring
 spring-boot = "4.0.1"
