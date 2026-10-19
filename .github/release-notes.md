@@ -1,13 +1,7 @@
 ---
-version: 1.2.0
+version: 1.3.0
 ---
 
-# Attache 1.2.0 - One graph
+# Attache 1.3.0 - Own descriptors
 
-`loadDescriptors()` and `loadGroups()` now resolve the transitive dependencies of the declared libraries as one dependency graph, so every artifact loads in one version instead of one per library that needs it; the version nearest to a declared library wins, as in Maven. A dependency still loads with the relocations of each library that needs it.
-
-A relocation declared directly in the `attache {}` block now applies to every library the application's descriptors declare, including those of other projects, and to their dependencies, for a package the application shades and relocates itself.
-
-## Upgrading
-
-* Two libraries that resolve transitive dependencies may no longer declare different versions of one artifact in the same descriptors; loading fails and names both.
+`LibraryManager#setDescriptorSources` names the jars or directories a library manager reads descriptors from. A part of an application with a class loader of its own, such as an add-on loaded in a child class loader, gives its manager its own jar, so it loads only the libraries it declares instead of reading the application's descriptors and loading those libraries again. By default a manager reads descriptors as before.
